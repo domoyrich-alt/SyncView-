@@ -313,32 +313,47 @@
         });
 
         async function loadUserData() {
-            try {
-                const response = await fetch('/api/user');
-                if (!response.ok) {
-                    throw new Error('Не авторизован');
-                }
-                
-                const data = await response.json();
-                if (data.success) {
-                    currentUser = data.user;
-                    document.getElementById('userNameNav').textContent = currentUser.username;
-                    
-                    const avatarNav = document.getElementById('userAvatarNav');
-                    if (currentUser.avatar) {
-                        avatarNav.style.backgroundImage = `url('${currentUser.avatar}')`;
-                        avatarNav.style.backgroundSize = 'cover';
-                        avatarNav.style.backgroundPosition = 'center';
-                    }
-                } else {
-                    throw new Error('Ошибка загрузки данных пользователя');
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки пользователя:', error);
-                window.location.href = '/login';
-            }
-        }
-
+  try {
+    const response = await fetch('/api/user', {
+      credentials: 'include' // ВАЖНО для работы сессий на Render
+    });
+    
+    console.log('Статус ответа:', response.status);
+    
+    if (response.status === 401) {
+      console.log('Пользователь не авторизован, перенаправляем на логин');
+      window.location.href = '/login';
+      return;
+    }
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Данные пользователя:', data);
+    
+    if (data.success) {
+      currentUser = data.user;
+      document.getElementById('userNameNav').textContent = currentUser.username;
+      
+      const avatarNav = document.getElementById('userAvatarNav');
+      if (currentUser.avatar) {
+        avatarNav.style.backgroundImage = `url('${currentUser.avatar}')`;
+        avatarNav.style.backgroundSize = 'cover';
+        avatarNav.style.backgroundPosition = 'center';
+      }
+      
+      console.log('Пользователь загружен:', currentUser.username);
+    } else {
+      console.log('Ошибка в данных, перенаправляем на логин');
+      window.location.href = '/login';
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки пользователя:', error);
+    window.location.href = '/login';
+  }
+}
         async function loadRoomData() {
             const roomId = window.location.pathname.split('/').pop();
             
@@ -1018,3 +1033,4 @@ async function loadUserData() {
   }
 }
 </script>
+
