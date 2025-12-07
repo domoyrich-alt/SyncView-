@@ -216,5 +216,88 @@
             }, 3000);
         }
     </script>
-</body>
+</body><script>
+// Обработка формы регистрации
+document.addEventListener('DOMContentLoaded', function() {
+  const registerForm = document.getElementById('registerForm');
+  if (registerForm) {
+    registerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      // Показать индикатор загрузки
+      const submitBtn = registerForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Регистрация...';
+      submitBtn.disabled = true;
+      
+      const formData = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      };
+      
+      try {
+        const response = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+          credentials: 'include' // Важно для куки
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Успешная регистрация - показываем сообщение и перенаправляем
+          if (typeof showNotification === 'function') {
+            showNotification('Регистрация успешна!', 'success');
+          } else {
+            alert('Регистрация успешна!');
+          }
+          
+          // Даем время для сохранения сессии
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1000);
+        } else {
+          // Показать ошибку
+          if (typeof showNotification === 'function') {
+            showNotification(data.error || 'Ошибка регистрации', 'error');
+          } else {
+            alert(data.error || 'Ошибка регистрации');
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        if (typeof showNotification === 'function') {
+          showNotification('Ошибка соединения с сервером', 'error');
+        } else {
+          alert('Ошибка соединения с сервером');
+        }
+      } finally {
+        // Восстановить кнопку
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+  }
+  
+  // Проверка паролей на совпадение (если есть confirm password)
+  const password = document.getElementById('password');
+  const confirmPassword = document.getElementById('confirmPassword');
+  
+  if (password && confirmPassword) {
+    function validatePasswords() {
+      if (password.value !== confirmPassword.value) {
+        confirmPassword.setCustomValidity('Пароли не совпадают');
+      } else {
+        confirmPassword.setCustomValidity('');
+      }
+    }
+    
+    password.onchange = validatePasswords;
+    confirmPassword.onkeyup = validatePasswords;
+  }
+});
+</script>
+
 </html>
