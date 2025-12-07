@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои комнаты - WatchParty</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <a href="/" style="text-decoration: none; color: inherit;">
+                    <span>WatchParty</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/">Главная</a>
+                <a href="/dashboard" class="active">Мои комнаты</a>
+                <a href="/profile">Профиль</a>
+            </div>
+            <div class="user-menu">
+                <a href="/profile" class="user-profile-link">
+                    <div class="user-avatar-nav" id="userAvatar"></div>
+                    <span id="userName"></span>
+                </a>
+                <button onclick="logout()" class="btn btn-outline btn-small">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </button>
+            </div>
+        </nav>
+
+        <div class="dashboard">
+            <div class="dashboard-header">
+                <h1><i class="fas fa-video"></i> Мои комнаты просмотра</h1>
+                <button class="btn btn-primary" onclick="openCreateRoomModal()">
+                    <i class="fas fa-plus"></i> Создать комнату
+                </button>
+            </div>
+
+            <div class="rooms-filters">
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all">Все комнаты</button>
+                    <button class="filter-tab" data-filter="my">Мои комнаты</button>
+                    <button class="filter-tab" data-filter="public">Публичные</button>
+                    <button class="filter-tab" data-filter="private">Приватные</button>
+                </div>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchRooms" placeholder="Поиск комнат...">
+                </div>
+            </div>
+
+            <div class="rooms-grid" id="roomsGrid">
+                <!-- Комнаты будут загружены через JavaScript -->
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Загрузка комнат...</p>
+                </div>
+            </div>
+
+            <div class="empty-state" id="emptyState" style="display: none;">
+                <i class="fas fa-video-slash"></i>
+                <h3>Нет комнат</h3>
+                <p>Создайте свою первую комнату для совместного просмотра</p>
+                <button class="btn btn-primary" onclick="openCreateRoomModal()">
+                    <i class="fas fa-plus"></i> Создать комнату
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно создания комнаты -->
+    <div class="modal" id="createRoomModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-video"></i> Создание новой комнаты</h3>
+                <button class="modal-close" onclick="closeCreateRoomModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createRoomForm">
+                    <div class="form-group">
+                        <label for="roomName" class="form-label">Название комнаты</label>
+                        <input type="text" id="roomName" class="form-input" placeholder="Например: Вечер кино с друзьями" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="videoUrl" class="form-label">Ссылка на видео (необязательно)</label>
+                        <input type="url" id="videoUrl" class="form-input" placeholder="YouTube, Vimeo или прямая ссылка">
+                        <div class="form-hint">
+                            Можно добавить позже в комнате
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <input type="checkbox" id="isPrivate">
+                                Приватная комната
+                            </label>
+                        </div>
+                        <div class="form-group" id="passwordField" style="display: none;">
+                            <label for="roomPassword" class="form-label">Пароль для входа</label>
+                            <input type="password" id="roomPassword" class="form-input" placeholder="Придумайте пароль">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            <i class="fas fa-video"></i> Создать комнату
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script src="script.js"></script>
+    <script>
+        let rooms = [];
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUserData();
+            await loadRooms();
+            setupEventListeners();
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    document.getElementById('userName').textContent = currentUser.username;
+                    const avatar = document.getElementById('userAvatar');
+                    avatar.style.backgroundImage = `url('${currentUser.avatar}')`;
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadRooms() {
+            try {
+                const response = await fetch('/api/rooms');
+                const data = await response.json();
+                
+                if (data.success) {
+                    rooms = data.rooms;
+                    renderRooms(rooms);
+                    
+                    if (rooms.length === 0) {
+                        document.getElementById('emptyState').style.display = 'block';
+                        document.getElementById('roomsGrid').style.display = 'none';
+                    } else {
+                        document.getElementById('emptyState').style.display = 'none';
+                        document.getElementById('roomsGrid').style.display = 'grid';
+                    }
+                }
+            } catch (error) {
+                showNotification('Ошибка загрузки комнат', 'error');
+            }
+        }
+
+        function renderRooms(roomsToRender) {
+            const grid = document.getElementById('roomsGrid');
+            grid.innerHTML = '';
+            
+            if (roomsToRender.length === 0) {
+                grid.innerHTML = '<div class="empty-room">Комнаты не найдены</div>';
+                return;
+            }
+            
+            roomsToRender.forEach(room => {
+                const roomElement = document.createElement('div');
+                roomElement.className = 'room-card';
+                roomElement.innerHTML = `
+                    <div class="room-card-header">
+                        <div class="room-name">${room.name}</div>
+                        <div class="room-status ${room.isPrivate ? 'private' : 'public'}">
+                            ${room.isPrivate ? '<i class="fas fa-lock"></i> Приватная' : '<i class="fas fa-globe"></i> Публичная'}
+                        </div>
+                    </div>
+                    
+                    <div class="room-host">
+                        <i class="fas fa-user"></i>
+                        <span>Создатель: ${room.host}</span>
+                    </div>
+                    
+                    <div class="room-participants">
+                        <i class="fas fa-users"></i>
+                        <span>Участников: ${room.participantCount}</span>
+                    </div>
+                    
+                    <div class="room-video">
+                        <i class="fas fa-film"></i>
+                        <span>${room.videoUrl ? 'Видео установлено' : 'Видео не добавлено'}</span>
+                    </div>
+                    
+                    <div class="room-actions">
+                        <button class="btn btn-primary btn-small" onclick="joinRoom('${room.id}', ${room.isPrivate})">
+                            <i class="fas fa-play"></i> Присоединиться
+                        </button>
+                        <button class="btn btn-outline btn-small" onclick="copyRoomLink('${room.id}')">
+                            <i class="fas fa-link"></i> Ссылка
+                        </button>
+                        ${room.hostId === currentUser.id ? 
+                            `<button class="btn btn-danger btn-small" onclick="deleteRoom('${room.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>` : ''
+                        }
+                    </div>
+                `;
+                grid.appendChild(roomElement);
+            });
+        }
+
+        function setupEventListeners() {
+            // Фильтры
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    const filter = tab.dataset.filter;
+                    let filteredRooms = rooms;
+                    
+                    switch(filter) {
+                        case 'my':
+                            filteredRooms = rooms.filter(room => room.hostId === currentUser.id);
+                            break;
+                        case 'public':
+                            filteredRooms = rooms.filter(room => !room.isPrivate);
+                            break;
+                        case 'private':
+                            filteredRooms = rooms.filter(room => room.isPrivate);
+                            break;
+                    }
+                    
+                    renderRooms(filteredRooms);
+                });
+            });
+
+            // Поиск
+            document.getElementById('searchRooms').addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredRooms = rooms.filter(room => 
+                    room.name.toLowerCase().includes(searchTerm) ||
+                    room.host.toLowerCase().includes(searchTerm)
+                );
+                renderRooms(filteredRooms);
+            });
+
+            // Приватная комната
+            document.getElementById('isPrivate').addEventListener('change', (e) => {
+                document.getElementById('passwordField').style.display = e.target.checked ? 'block' : 'none';
+            });
+
+            // Форма создания комнаты
+            document.getElementById('createRoomForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const roomName = document.getElementById('roomName').value;
+                const videoUrl = document.getElementById('videoUrl').value;
+                const isPrivate = document.getElementById('isPrivate').checked;
+                const password = isPrivate ? document.getElementById('roomPassword').value : null;
+                
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
+                submitBtn.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/create-room', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ roomName, videoUrl, isPrivate, password })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showNotification('Комната создана!', 'success');
+                        closeCreateRoomModal();
+                        await loadRooms();
+                        
+                        // Автоматически присоединяемся к новой комнате
+                        setTimeout(() => joinRoom(data.room.id, isPrivate), 500);
+                    } else {
+                        showNotification(data.error || 'Ошибка создания комнаты', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Ошибка соединения', 'error');
+                } finally {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+        }
+
+        function joinRoom(roomId, isPrivate) {
+            if (isPrivate) {
+                const password = prompt('Введите пароль для входа в приватную комнату:');
+                if (password) {
+                    window.location.href = `/room/${roomId}?password=${encodeURIComponent(password)}`;
+                }
+            } else {
+                window.location.href = `/room/${roomId}`;
+            }
+        }
+
+        async function copyRoomLink(roomId) {
+            const room = rooms.find(r => r.id === roomId);
+            if (!room) return;
+            
+            const url = `${window.location.origin}/room/${roomId}`;
+            await navigator.clipboard.writeText(url);
+            showNotification('Ссылка скопирована в буфер обмена!', 'success');
+        }
+
+        async function deleteRoom(roomId) {
+            if (!confirm('Вы уверены, что хотите удалить эту комнату?')) return;
+            
+            try {
+                // В реальном приложении здесь был бы DELETE запрос к API
+                showNotification('Функция удаления в разработке', 'info');
+                // await fetch(`/api/room/${roomId}`, { method: 'DELETE' });
+                // await loadRooms();
+            } catch (error) {
+                showNotification('Ошибка удаления комнаты', 'error');
+            }
+        }
+
+        function openCreateRoomModal() {
+            document.getElementById('createRoomModal').classList.add('active');
+            document.getElementById('roomName').focus();
+        }
+
+        function closeCreateRoomModal() {
+            document.getElementById('createRoomModal').classList.remove('active');
+            document.getElementById('createRoomForm').reset();
+            document.getElementById('passwordField').style.display = 'none';
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                showNotification('Ошибка выхода', 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

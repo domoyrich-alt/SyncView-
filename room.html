@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Комната просмотра - WatchParty</title>
+    <link rel="stylesheet" href="style.css?v=2.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.10/dist/hls.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <a href="/dashboard" style="text-decoration: none; color: inherit;">
+                    <span>WatchParty</span>
+                </a>
+            </div>
+            <div class="room-info-nav">
+                <span id="roomNameNav">Загрузка...</span>
+                <div class="room-status-nav">
+                    <i class="fas fa-circle online"></i>
+                    <span id="participantsCount">0</span> онлайн
+                </div>
+            </div>
+            <div class="user-menu">
+                <a href="/profile" class="user-profile-link">
+                    <div class="user-avatar-nav" id="userAvatarNav"></div>
+                    <span id="userNameNav"></span>
+                </a>
+                <button onclick="leaveRoom()" class="btn btn-outline btn-small">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </button>
+            </div>
+        </nav>
+
+        <div class="room-container">
+            <!-- Основной видеоплеер -->
+            <div class="video-section">
+                <div class="video-wrapper">
+                    <video id="videoPlayer" controls crossorigin="anonymous">
+                        Ваш браузер не поддерживает видео тег.
+                    </video>
+                    <div class="video-controls-overlay">
+                        <div class="video-controls">
+                            <button class="control-btn-large" id="playPauseBtn">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <div class="time-display">
+                                <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
+                            </div>
+                            <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0">
+                            <div class="volume-control">
+                                <button class="control-btn-small" id="muteBtn">
+                                    <i class="fas fa-volume-up"></i>
+                                </button>
+                                <input type="range" id="volumeBar" class="volume-bar" min="0" max="100" value="100">
+                            </div>
+                            <button class="control-btn-large" id="fullscreenBtn">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="video-url-input">
+                    <input type="url" id="videoUrlInput" placeholder="Вставьте ссылку на видео (YouTube, Vimeo, MP4, M3U8)">
+                    <button class="btn btn-primary" id="loadVideoBtn">
+                        <i class="fas fa-play"></i> Загрузить
+                    </button>
+                </div>
+            </div>
+
+            <!-- Боковая панель -->
+            <div class="sidebar">
+                <!-- Чат -->
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <h3><i class="fas fa-comments"></i> Чат комнаты</h3>
+                        <div class="chat-actions">
+                            <button class="btn-icon" id="clearChatBtn" title="Очистить чат">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Сообщения будут добавляться через JavaScript -->
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="Введите сообщение..." maxlength="500">
+                        <button class="btn btn-primary" id="sendMessageBtn">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Участники -->
+                <div class="participants-container">
+                    <div class="participants-header">
+                        <h3><i class="fas fa-users"></i> Участники</h3>
+                        <span class="participants-count" id="participantsListCount">0</span>
+                    </div>
+                    <div class="participants-list" id="participantsList">
+                        <!-- Участники будут добавляться через JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Звуковые эффекты -->
+                <div class="sound-effects-panel">
+                    <h3><i class="fas fa-music"></i> Звуковые эффекты</h3>
+                    <div class="sound-effects-grid">
+                        <button class="sound-effect-btn" data-sound="applause">
+                            <i class="fas fa-hands-clapping"></i>
+                            <span>Аплодисменты</span>
+                        </button>
+                        <button class="sound-effect-btn" data-sound="laugh">
+                            <i class="fas fa-face-laugh"></i>
+                            <span>Смех</span>
+                        </button>
+                        <button class="sound-effect-btn" data-sound="gasp">
+                            <i class="fas fa-face-surprise"></i>
+                            <span>Удивление</span>
+                        </button>
+                        <button class="sound-effect-btn" data-sound="boo">
+                            <i class="fas fa-face-angry"></i>
+                            <span>Недовольство</span>
+                        </button>
+                        <button class="sound-effect-btn" data-sound="drumroll">
+                            <i class="fas fa-drum"></i>
+                            <span>Барабанная дробь</span>
+                        </button>
+                        <button class="sound-effect-btn" data-sound="sad">
+                            <i class="fas fa-face-sad-cry"></i>
+                            <span>Грусть</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Управление комнатой -->
+                <div class="room-control-panel">
+                    <h3><i class="fas fa-cog"></i> Управление комнатой</h3>
+                    <div class="room-controls">
+                        <button class="btn btn-outline btn-block" id="inviteBtn">
+                            <i class="fas fa-user-plus"></i> Пригласить друзей
+                        </button>
+                        
+                        <!-- Синхронизация экрана браузера -->
+                        <button class="btn btn-primary btn-block" id="screenShareBtn">
+                            <i class="fas fa-desktop"></i> Показать экран
+                        </button>
+                        
+                        <button class="btn btn-primary btn-block" id="syncBtn">
+                            <i class="fas fa-sync-alt"></i> Синхронизировать
+                        </button>
+                        
+                        <!-- Дополнительные настройки синхронизации -->
+                        <div class="sync-options">
+                            <label class="setting">
+                                <input type="checkbox" id="autoSync" checked>
+                                <span class="checkmark"></span>
+                                Автосинхронизация
+                            </label>
+                            <label class="setting">
+                                <input type="checkbox" id="syncAudio" checked>
+                                <span class="checkmark"></span>
+                                Синхронизировать звук
+                            </label>
+                            <label class="setting">
+                                <input type="checkbox" id="showControlBar" checked>
+                                <span class="checkmark"></span>
+                                Панель управления
+                            </label>
+                            <label class="setting">
+                                <input type="checkbox" id="showTimestamps">
+                                <span class="checkmark"></span>
+                                Показывать время в чате
+                            </label>
+                        </div>
+                        
+                        <!-- Параметры синхронизации -->
+                        <div class="sync-params">
+                            <div class="sync-param">
+                                <label for="syncDelay">Задержка (мс):</label>
+                                <input type="number" id="syncDelay" min="0" max="5000" value="100" step="100">
+                            </div>
+                            <div class="sync-param">
+                                <label for="syncQuality">Качество:</label>
+                                <select id="syncQuality">
+                                    <option value="low">Низкое</option>
+                                    <option value="medium" selected>Среднее</option>
+                                    <option value="high">Высокое</option>
+                                    <option value="ultra">Ультра</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно приглашения -->
+    <div class="modal" id="inviteModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-plus"></i> Пригласить друзей</h3>
+                <button class="modal-close" onclick="closeInviteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="invite-method">
+                    <h4>Ссылка для приглашения</h4>
+                    <div class="link-container">
+                        <input type="text" id="roomLink" readonly>
+                        <button class="btn btn-primary" id="copyLinkBtn">
+                            <i class="fas fa-copy"></i> Копировать
+                        </button>
+                    </div>
+                    <p class="hint">Отправьте эту ссылку друзьям, чтобы они присоединились к комнате</p>
+                </div>
+                
+                <div class="invite-method">
+                    <h4>Пригласить по email</h4>
+                    <div class="email-invite">
+                        <input type="email" id="inviteEmail" placeholder="Email друга">
+                        <button class="btn btn-primary" id="sendInviteBtn">
+                            <i class="fas fa-paper-plane"></i> Отправить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Индикатор синхронизации экрана -->
+    <div class="sync-notification" id="syncNotification" style="display: none;">
+        <div class="sync-indicator">
+            <i class="fas fa-desktop"></i>
+            <span id="syncIndicatorText">Синхронизация экрана активна</span>
+        </div>
+        <div class="sync-progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="syncProgress"></div>
+            </div>
+            <span id="syncLatency">0мс</span>
+        </div>
+        <button class="btn-icon" onclick="stopScreenShare()" title="Остановить показ экрана">
+            <i class="fas fa-stop"></i>
+        </button>
+    </div>
+
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js?v=2.0"></script>
+    <script>
+        // Глобальные переменные
+        let socket = null;
+        let currentRoom = null;
+        let currentUser = null;
+        let isHost = false;
+        let videoPlayer = null;
+        let hls = null;
+        let lastSyncTime = 0;
+        let autoSyncEnabled = true;
+        let isSyncing = false;
+        
+        // Переменные для синхронизации экрана
+        let screenStream = null;
+        let screenShareActive = false;
+        let screenRecorder = null;
+        let syncInterval = null;
+        let syncQuality = 'medium';
+        let syncDelay = 100;
+        let currentScreenSharerId = null;
+        let screenCanvas = null;
+        let screenCtx = null;
+        let progressInterval = null;
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUserData();
+            await loadRoomData();
+            initializeSocket();
+            initializeVideoPlayer();
+            setupEventListeners();
+            initializeScreenCanvas();
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    document.getElementById('userNameNav').textContent = currentUser.username;
+                    const avatarNav = document.getElementById('userAvatarNav');
+                    avatarNav.style.backgroundImage = `url('${currentUser.avatar}')`;
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadRoomData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = window.location.pathname.split('/').pop();
+            const password = urlParams.get('password');
+            
+            try {
+                let url = `/api/room/${roomId}`;
+                if (password) {
+                    url += `?password=${encodeURIComponent(password)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentRoom = data.room;
+                    isHost = currentRoom.hostId === currentUser.id;
+                    currentScreenSharerId = currentRoom.screenSharer ? currentRoom.screenSharer.userId : null;
+                    updateRoomUI();
+                } else {
+                    showNotification(data.error || 'Ошибка загрузки комнаты', 'error');
+                    setTimeout(() => window.location.href = '/dashboard', 2000);
+                }
+            } catch (error) {
+                showNotification('Ошибка соединения', 'error');
+                setTimeout(() => window.location.href = '/dashboard', 2000);
+            }
+        }
+
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', () => {
+                console.log('WebSocket подключен');
+                joinRoom();
+            });
+            
+            socket.on('room-state', (data) => {
+                console.log('Получено состояние комнаты:', data);
+                currentScreenSharerId = data.screenSharer ? data.screenSharer.userId : null;
+                updateParticipantsList(data.participants);
+                loadChatMessages(data.messages);
+                
+                if (data.videoState.url) {
+                    loadVideo(data.videoState.url);
+                    if (!isHost && data.videoState.isPlaying !== undefined) {
+                        syncVideoWithServer(data.videoState);
+                    }
+                }
+                
+                // Если кто-то демонстрирует экран, показываем индикатор
+                if (currentScreenSharerId && currentScreenSharerId !== currentUser.id) {
+                    const sharer = data.participants.find(p => p.id === currentScreenSharerId);
+                    if (sharer) {
+                        showSyncNotification(sharer.username);
+                    }
+                }
+            });
+            
+            socket.on('user-joined', (data) => {
+                showNotification(`${data.username} присоединился(ась) к комнате`, 'info');
+                addSystemMessage(`${data.username} присоединился(ась) к комнате`);
+            });
+            
+            socket.on('user-left', (data) => {
+                showNotification('Пользователь покинул комнату', 'info');
+                removeParticipant(data.userId);
+            });
+            
+            socket.on('new-message', (message) => {
+                addMessageToChat(message);
+            });
+            
+            socket.on('video-update', (data) => {
+                if (isHost) return; // Хост не синхронизируется с собой
+                
+                console.log('Получено обновление видео:', data);
+                handleVideoUpdate(data);
+            });
+            
+            socket.on('play-sound', (sound) => {
+                playSoundEffect(sound);
+            });
+            
+            socket.on('participants-updated', (participants) => {
+                updateParticipantsList(participants);
+            });
+            
+            // Обработчики для синхронизации экрана
+            socket.on('screen-share-start', (data) => {
+                handleScreenShareStart(data);
+            });
+            
+            socket.on('screen-share-stop', (data) => {
+                handleScreenShareStop(data);
+            });
+            
+            socket.on('screen-frame', (data) => {
+                if (data.userId === currentUser.id) return;
+                displayScreenFrame(data.frame, data.width, data.height);
+            });
+            
+            socket.on('error', (data) => {
+                showNotification(data.message, 'error');
+            });
+            
+            socket.on('disconnect', () => {
+                showNotification('Потеряно соединение с сервером', 'error');
+            });
+        }
+
+        function joinRoom() {
+            if (!socket || !currentRoom || !currentUser) return;
+            
+            socket.emit('join-room', {
+                roomId: currentRoom.id,
+                userId: currentUser.id,
+                username: currentUser.username,
+                avatar: currentUser.avatar
+            });
+        }
+
+        function initializeVideoPlayer() {
+            videoPlayer = document.getElementById('videoPlayer');
+            
+            // События видео
+            videoPlayer.addEventListener('play', () => {
+                if (isHost) {
+                    sendVideoControl('play', videoPlayer.currentTime);
+                }
+            });
+            
+            videoPlayer.addEventListener('pause', () => {
+                if (isHost) {
+                    sendVideoControl('pause', videoPlayer.currentTime);
+                }
+            });
+            
+            videoPlayer.addEventListener('seeked', () => {
+                if (isHost && !isSyncing) {
+                    sendVideoControl('seek', videoPlayer.currentTime);
+                }
+            });
+            
+            videoPlayer.addEventListener('timeupdate', () => {
+                updateTimeDisplay();
+                
+                // Автосинхронизация для не-хостов
+                if (!isHost && autoSyncEnabled && Date.now() - lastSyncTime > 10000) {
+                    requestSync();
+                }
+            });
+            
+            videoPlayer.addEventListener('loadedmetadata', () => {
+                updateTimeDisplay();
+                if (isHost && currentRoom.videoUrl) {
+                    sendVideoControl('change-video', 0, currentRoom.videoUrl);
+                }
+            });
+            
+            // Инициализация HLS.js
+            if (Hls.isSupported()) {
+                hls = new Hls();
+            }
+        }
+
+        function initializeScreenCanvas() {
+            screenCanvas = document.createElement('canvas');
+            screenCtx = screenCanvas.getContext('2d');
+        }
+
+        function setupEventListeners() {
+            // Кнопки управления видео
+            document.getElementById('playPauseBtn').addEventListener('click', togglePlayPause);
+            document.getElementById('muteBtn').addEventListener('click', toggleMute);
+            document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+            
+            document.getElementById('progressBar').addEventListener('input', (e) => {
+                if (!videoPlayer.duration) return;
+                const time = (e.target.value / 100) * videoPlayer.duration;
+                videoPlayer.currentTime = time;
+            });
+            
+            document.getElementById('volumeBar').addEventListener('input', (e) => {
+                videoPlayer.volume = e.target.value / 100;
+                updateVolumeIcon();
+            });
+            
+            // Загрузка видео
+            document.getElementById('loadVideoBtn').addEventListener('click', () => {
+                const url = document.getElementById('videoUrlInput').value;
+                if (url) {
+                    loadVideo(url);
+                    if (isHost) {
+                        sendVideoControl('change-video', 0, url);
+                    }
+                }
+            });
+            
+            document.getElementById('videoUrlInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('loadVideoBtn').click();
+                }
+            });
+            
+            // Чат
+            document.getElementById('sendMessageBtn').addEventListener('click', sendMessage);
+            document.getElementById('chatInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            document.getElementById('clearChatBtn').addEventListener('click', () => {
+                if (confirm('Очистить всю историю чата?')) {
+                    document.getElementById('chatMessages').innerHTML = '';
+                }
+            });
+            
+            // Звуковые эффекты
+            document.querySelectorAll('.sound-effect-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sound = btn.dataset.sound;
+                    playSoundEffect(sound);
+                    socket.emit('sound-effect', { roomId: currentRoom.id, sound });
+                });
+            });
+            
+            // Управление комнатой
+            document.getElementById('inviteBtn').addEventListener('click', openInviteModal);
+            document.getElementById('syncBtn').addEventListener('click', requestSync);
+            document.getElementById('screenShareBtn').addEventListener('click', () => {
+                if (!screenShareActive) {
+                    startScreenShare();
+                } else {
+                    stopScreenShare();
+                }
+            });
+            
+            // Настройки синхронизации
+            document.getElementById('autoSync').addEventListener('change', (e) => {
+                autoSyncEnabled = e.target.checked;
+            });
+            
+            document.getElementById('syncQuality').addEventListener('change', (e) => {
+                syncQuality = e.target.value;
+                if (screenShareActive) {
+                    restartScreenSync();
+                }
+            });
+            
+            document.getElementById('syncDelay').addEventListener('change', (e) => {
+                syncDelay = parseInt(e.target.value);
+                if (screenShareActive) {
+                    restartScreenSync();
+                }
+            });
+            
+            // Модальное окно приглашения
+            document.getElementById('copyLinkBtn').addEventListener('click', copyRoomLink);
+            document.getElementById('sendInviteBtn').addEventListener('click', sendEmailInvite);
+            
+            // Обработка закрытия страницы
+            window.addEventListener('beforeunload', () => {
+                if (socket) {
+                    socket.emit('leave-room', {
+                        roomId: currentRoom.id,
+                        userId: currentUser.id
+                    });
+                }
+                stopScreenShare();
+            });
+        }
+
+        // Функции управления видео
+        function loadVideo(url) {
+            if (!url) return;
+            
+            // Обновляем URL в комнате
+            currentRoom.videoUrl = url;
+            
+            // Проверяем тип видео
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                loadYouTubeVideo(url);
+            } else if (url.includes('vimeo.com')) {
+                loadVimeoVideo(url);
+            } else if (url.endsWith('.m3u8')) {
+                loadHLSVideo(url);
+            } else if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg')) {
+                loadDirectVideo(url);
+            } else {
+                showNotification('Формат видео не поддерживается', 'error');
+            }
+        }
+
+        function loadDirectVideo(url) {
+            videoPlayer.src = url;
+            videoPlayer.load();
+            showNotification('Видео загружается...', 'info');
+        }
+
+        function loadHLSVideo(url) {
+            if (Hls.isSupported()) {
+                if (hls) {
+                    hls.destroy();
+                }
+                hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(videoPlayer);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    videoPlayer.play();
+                });
+            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                videoPlayer.src = url;
+                videoPlayer.addEventListener('loadedmetadata', () => {
+                    videoPlayer.play();
+                });
+            } else {
+                showNotification('Ваш браузер не поддерживает HLS видео', 'error');
+            }
+        }
+
+        function loadYouTubeVideo(url) {
+            // В реальном приложении здесь была бы интеграция с YouTube API
+            showNotification('YouTube видео загружается...', 'info');
+            // Для демо просто показываем сообщение
+            document.getElementById('videoUrlInput').value = url;
+        }
+
+        function loadVimeoVideo(url) {
+            // В реальном приложении здесь была бы интеграция с Vimeo API
+            showNotification('Vimeo видео загружается...', 'info');
+            document.getElementById('videoUrlInput').value = url;
+        }
+
+        function togglePlayPause() {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+            } else {
+                videoPlayer.pause();
+            }
+        }
+
+        function toggleMute() {
+            videoPlayer.muted = !videoPlayer.muted;
+            updateVolumeIcon();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                videoPlayer.requestFullscreen().catch(err => {
+                    console.log('Ошибка полноэкранного режима:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function updateTimeDisplay() {
+            const currentTime = document.getElementById('currentTime');
+            const duration = document.getElementById('duration');
+            const progressBar = document.getElementById('progressBar');
+            
+            if (!isNaN(videoPlayer.duration)) {
+                const currentMinutes = Math.floor(videoPlayer.currentTime / 60);
+                const currentSeconds = Math.floor(videoPlayer.currentTime % 60);
+                const durationMinutes = Math.floor(videoPlayer.duration / 60);
+                const durationSeconds = Math.floor(videoPlayer.duration % 60);
+                
+                currentTime.textContent = `${currentMinutes}:${currentSeconds.toString().padStart(2, '0')}`;
+                duration.textContent = `${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}`;
+                progressBar.value = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+            }
+        }
+
+        function updateVolumeIcon() {
+            const muteBtn = document.getElementById('muteBtn');
+            const volumeBar = document.getElementById('volumeBar');
+            
+            if (videoPlayer.muted || videoPlayer.volume === 0) {
+                muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                volumeBar.value = 0;
+            } else if (videoPlayer.volume < 0.5) {
+                muteBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+                volumeBar.value = videoPlayer.volume * 100;
+            } else {
+                muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                volumeBar.value = videoPlayer.volume * 100;
+            }
+        }
+
+        // Функции чата
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message || !socket) return;
+            
+            socket.emit('send-message', {
+                roomId: currentRoom.id,
+                userId: currentUser.id,
+                message: message
+            });
+            
+            input.value = '';
+            input.focus();
+        }
+
+        function addMessageToChat(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            
+            const time = new Date(message.timestamp);
+            const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            
+            messageElement.innerHTML = `
+                <div class="message-avatar">
+                    <img src="${message.avatar}" alt="${message.username}">
+                </div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-username">${message.username}</span>
+                        <span class="message-time">${timeString}</span>
+                    </div>
+                    <div class="message-text">${escapeHtml(message.message)}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message system';
+            
+            const time = new Date();
+            const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            
+            messageElement.innerHTML = `
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-username"><i class="fas fa-info-circle"></i> Система</span>
+                        <span class="message-time">${timeString}</span>
+                    </div>
+                    <div class="message-text">${text}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function loadChatMessages(messages) {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            
+            messages.forEach(message => {
+                addMessageToChat(message);
+            });
+        }
+
+        // Функции участников
+        function updateParticipantsList(participants) {
+            const participantsList = document.getElementById('participantsList');
+            const participantsCount = document.getElementById('participantsCount');
+            const participantsListCount = document.getElementById('participantsListCount');
+            
+            participantsList.innerHTML = '';
+            participantsCount.textContent = participants.length;
+            participantsListCount.textContent = participants.length;
+            
+            participants.forEach(participant => {
+                const isSharing = participant.isSharingScreen || participant.id === currentScreenSharerId;
+                const isCurrentUser = participant.id === currentUser.id;
+                
+                const participantElement = document.createElement('div');
+                participantElement.className = 'participant-item';
+                participantElement.innerHTML = `
+                    <div class="participant-avatar">
+                        <img src="${participant.avatar}" alt="${participant.username}">
+                        ${isSharing ? '<div class="sharing-indicator"><i class="fas fa-desktop"></i></div>' : ''}
+                    </div>
+                    <div class="participant-info">
+                        <div class="participant-name">
+                            ${participant.username}
+                            ${isCurrentUser ? '<span class="you-badge">Вы</span>' : ''}
+                            ${isSharing ? '<span class="sharing-badge">Демонстрирует</span>' : ''}
+                        </div>
+                        ${participant.id === currentRoom.hostId ? 
+                          '<div class="participant-host">Хост</div>' : 
+                          '<div class="participant-role">Участник</div>'}
+                    </div>
+                `;
+                participantsList.appendChild(participantElement);
+            });
+        }
+
+        function removeParticipant(userId) {
+            // Обновляется через WebSocket события
+        }
+
+        // Функции синхронизации
+        function sendVideoControl(action, time, url) {
+            if (!socket) return;
+            
+            socket.emit('video-control', {
+                roomId: currentRoom.id,
+                action: action,
+                time: time,
+                url: url
+            });
+            
+            lastSyncTime = Date.now();
+        }
+
+        function handleVideoUpdate(data) {
+            isSyncing = true;
+            
+            switch(data.action) {
+                case 'play':
+                    if (Math.abs(videoPlayer.currentTime - data.time) > 2) {
+                        videoPlayer.currentTime = data.time;
+                    }
+                    videoPlayer.play().catch(e => console.log('Ошибка воспроизведения:', e));
+                    break;
+                case 'pause':
+                    videoPlayer.pause();
+                    if (Math.abs(videoPlayer.currentTime - data.time) > 2) {
+                        videoPlayer.currentTime = data.time;
+                    }
+                    break;
+                case 'seek':
+                    videoPlayer.currentTime = data.time;
+                    break;
+                case 'change-video':
+                    loadVideo(data.url);
+                    break;
+            }
+            
+            setTimeout(() => {
+                isSyncing = false;
+            }, 100);
+        }
+
+        function requestSync() {
+            if (!socket || !isHost) return;
+            
+            socket.emit('video-control', {
+                roomId: currentRoom.id,
+                action: videoPlayer.paused ? 'pause' : 'play',
+                time: videoPlayer.currentTime
+            });
+            
+            lastSyncTime = Date.now();
+            showNotification('Видео синхронизировано', 'info');
+        }
+
+        // Звуковые эффекты
+        function playSoundEffect(sound) {
+            const audio = new Audio();
+            
+            switch(sound) {
+                case 'applause':
+                    audio.src = 'https://assets.mixkit.co/sfx/preview/mixkit-audience-light-applause-354.mp3';
+                    break;
+                case 'laugh':
+                    audio.src = 'https://assets.mixkit.co/sfx/preview/mixkit-crowd-laugh-464.mp3';
+                    break;
+                case 'gasp':
+                    audio.src = 'https://assets.mixkit.co/sfx/preview/mixkit-crowd-gasp-390.mp3';
+                    break;
+                case 'boo':
+                    audio.src = 'https://assets.mixkit.co/sfx/preview/mixkit-boo-crowd-461.mp3';
+                    break;
+                case 'drumroll':
+                    audio.src = 'https://assets.mixkit.co/sfx/preview/mixkit-drum-roll-473.mp3';
+                    break;
+                case 'sad':
+                    audio.src = 'https://assets.mixkit.co/sfx/preview/mixkit-sad-crowd-492.mp3';
+                    break;
+            }
+            
+            audio.volume = 0.3;
+            audio.play().catch(e => console.log('Ошибка воспроизведения звука:', e));
+        }
+
+        // Функции синхронизации экрана
+        async function startScreenShare() {
+            try {
+                showNotification('Запрашиваю доступ к экрану...', 'info');
+                
+                const constraints = {
+                    video: {
+                        cursor: "always",
+                        frameRate: getFrameRate(),
+                        width: { max: getMaxWidth() },
+                        height: { max: getMaxHeight() }
+                    },
+                    audio: document.getElementById('syncAudio').checked
+                };
+                
+                screenStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+                
+                // Обработчик прекращения трансляции
+                screenStream.getVideoTracks()[0].onended = () => {
+                    stopScreenShare();
+                };
+                
+                // Отображаем экран в видео-плеере
+                videoPlayer.srcObject = screenStream;
+                videoPlayer.muted = true; // Отключаем звук у источника
+                
+                // Обновляем UI
+                document.getElementById('screenShareBtn').innerHTML = '<i class="fas fa-stop"></i> Остановить показ';
+                document.getElementById('screenShareBtn').classList.remove('btn-primary');
+                document.getElementById('screenShareBtn').classList.add('btn-danger');
+                
+                // Показываем индикатор синхронизации
+                document.getElementById('syncIndicatorText').textContent = 'Вы демонстрируете экран';
+                document.getElementById('syncNotification').style.display = 'flex';
+                startProgressAnimation();
+                
+                // Начинаем синхронизацию
+                startScreenSync();
+                
+                // Устанавливаем текущего демонстратора экрана
+                currentScreenSharerId = currentUser.id;
+                
+                // Отправляем уведомление о начале показа экрана
+                socket.emit('screen-share-start', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id,
+                    username: currentUser.username,
+                    quality: syncQuality,
+                    delay: syncDelay
+                });
+                
+                // Отправляем уведомление в чат
+                socket.emit('send-message', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id,
+                    message: '🔴 Начал показ экрана'
+                });
+                
+                showNotification('Показ экрана начат', 'success');
+                
+            } catch (error) {
+                console.error('Ошибка при показе экрана:', error);
+                showNotification('Не удалось начать показ экрана', 'error');
+                
+                if (error.name === 'NotAllowedError') {
+                    showNotification('Доступ к экрану отклонен. Разрешите доступ в настройках браузера.', 'error');
+                }
+            }
+        }
+
+        function startScreenSync() {
+            screenShareActive = true;
+            syncQuality = document.getElementById('syncQuality').value;
+            syncDelay = parseInt(document.getElementById('syncDelay').value);
+            
+            // Очищаем предыдущий интервал
+            if (syncInterval) clearInterval(syncInterval);
+            
+            // Начинаем захват и отправку кадров
+            syncInterval = setInterval(() => {
+                captureAndSendScreenFrame();
+            }, syncDelay);
+        }
+
+        function captureAndSendScreenFrame() {
+            if (!screenStream || !screenCanvas || !screenCtx) return;
+            
+            try {
+                const videoTrack = screenStream.getVideoTracks()[0];
+                if (!videoTrack) return;
+                
+                const videoSettings = videoTrack.getSettings();
+                if (!videoSettings.width || !videoSettings.height) return;
+                
+                // Устанавливаем размеры canvas
+                const scale = getQualityScale(syncQuality);
+                screenCanvas.width = videoSettings.width * scale;
+                screenCanvas.height = videoSettings.height * scale;
+                
+                // Создаем временный video элемент
+                const tempVideo = document.createElement('video');
+                tempVideo.srcObject = new MediaStream([videoTrack]);
+                
+                tempVideo.onloadeddata = () => {
+                    // Рисуем кадр на canvas
+                    screenCtx.drawImage(tempVideo, 0, 0, screenCanvas.width, screenCanvas.height);
+                    
+                    // Конвертируем в base64
+                    const frameData = screenCanvas.toDataURL('image/jpeg', getQualityCompression(syncQuality));
+                    
+                    // Отправляем кадр другим участникам
+                    socket.emit('screen-frame', {
+                        roomId: currentRoom.id,
+                        userId: currentUser.id,
+                        frame: frameData,
+                        timestamp: Date.now(),
+                        width: screenCanvas.width,
+                        height: screenCanvas.height
+                    });
+                    
+                    // Обновляем индикатор задержки
+                    updateLatencyIndicator();
+                };
+                
+                tempVideo.play().catch(e => console.log('Ошибка воспроизведения временного видео:', e));
+                
+            } catch (error) {
+                console.error('Ошибка захвата кадра:', error);
+            }
+        }
+
+        function displayScreenFrame(frameData, width, height) {
+            // Если есть поток с экрана, не отображаем кадры
+            if (screenShareActive) return;
+            
+            const img = new Image();
+            img.onload = () => {
+                // Создаем временный canvas для отображения
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(img, 0, 0, width, height);
+                
+                // Создаем видео поток из canvas
+                const stream = tempCanvas.captureStream(30);
+                if (videoPlayer.srcObject !== stream) {
+                    videoPlayer.srcObject = stream;
+                }
+            };
+            img.src = frameData;
+        }
+
+        function handleScreenShareStart(data) {
+            if (data.userId === currentUser.id) return;
+            
+            currentScreenSharerId = data.userId;
+            
+            showSyncNotification(data.username);
+            showNotification(`${data.username} начал показ экрана`, 'info');
+        }
+
+        function handleScreenShareStop(data) {
+            if (data.userId === currentUser.id) return;
+            
+            if (currentScreenSharerId === data.userId) {
+                currentScreenSharerId = null;
+                
+                // Скрываем индикатор синхронизации
+                document.getElementById('syncNotification').style.display = 'none';
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+                
+                showNotification('Показ экрана остановлен', 'info');
+            }
+        }
+
+        function stopScreenShare() {
+            if (screenShareActive) {
+                screenShareActive = false;
+                currentScreenSharerId = null;
+                
+                // Останавливаем синхронизацию
+                if (syncInterval) {
+                    clearInterval(syncInterval);
+                    syncInterval = null;
+                }
+                
+                // Останавливаем поток
+                if (screenStream) {
+                    screenStream.getTracks().forEach(track => track.stop());
+                    screenStream = null;
+                }
+                
+                // Возвращаем видео плеер в исходное состояние
+                videoPlayer.srcObject = null;
+                
+                // Обновляем UI
+                document.getElementById('screenShareBtn').innerHTML = '<i class="fas fa-desktop"></i> Показать экран';
+                document.getElementById('screenShareBtn').classList.remove('btn-danger');
+                document.getElementById('screenShareBtn').classList.add('btn-primary');
+                
+                // Скрываем индикатор синхронизации
+                document.getElementById('syncNotification').style.display = 'none';
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+                
+                // Отправляем сообщение об остановке
+                socket.emit('screen-share-stop', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id
+                });
+                
+                // Отправляем уведомление в чат
+                socket.emit('send-message', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id,
+                    message: '⏹️ Показ экрана остановлен'
+                });
+                
+                showNotification('Показ экрана остановлен', 'info');
+            }
+        }
+
+        function showSyncNotification(username) {
+            document.getElementById('syncIndicatorText').textContent = `Синхронизация с ${username}`;
+            document.getElementById('syncNotification').style.display = 'flex';
+            startProgressAnimation();
+        }
+
+        function startProgressAnimation() {
+            let progress = 0;
+            const progressBar = document.getElementById('syncProgress');
+            
+            if (progressInterval) clearInterval(progressInterval);
+            
+            progressInterval = setInterval(() => {
+                progress = (progress + 5) % 100;
+                progressBar.style.width = `${progress}%`;
+            }, 100);
+        }
+
+        function updateLatencyIndicator() {
+            const latencyElement = document.getElementById('syncLatency');
+            const latency = Math.floor(Math.random() * 50) + 20; // Имитация задержки 20-70мс
+            latencyElement.textContent = `${latency}мс`;
+        }
+
+        function restartScreenSync() {
+            if (screenShareActive) {
+                stopScreenShare();
+                setTimeout(() => startScreenShare(), 100);
+            }
+        }
+
+        // Вспомогательные функции для качества
+        function getQualityScale(quality) {
+            switch(quality) {
+                case 'low': return 0.3;
+                case 'medium': return 0.5;
+                case 'high': return 0.7;
+                case 'ultra': return 1;
+                default: return 0.5;
+            }
+        }
+
+        function getQualityCompression(quality) {
+            switch(quality) {
+                case 'low': return 0.3;
+                case 'medium': return 0.6;
+                case 'high': return 0.8;
+                case 'ultra': return 1;
+                default: return 0.6;
+            }
+        }
+
+        function getFrameRate() {
+            const quality = document.getElementById('syncQuality').value;
+            switch(quality) {
+                case 'low': return 10;
+                case 'medium': return 15;
+                case 'high': return 24;
+                case 'ultra': return 30;
+                default: return 15;
+            }
+        }
+
+        function getMaxWidth() {
+            const quality = document.getElementById('syncQuality').value;
+            switch(quality) {
+                case 'low': return 1280;
+                case 'medium': return 1920;
+                case 'high': return 2560;
+                case 'ultra': return 3840;
+                default: return 1920;
+            }
+        }
+
+        function getMaxHeight() {
+            const quality = document.getElementById('syncQuality').value;
+            switch(quality) {
+                case 'low': return 720;
+                case 'medium': return 1080;
+                case 'high': return 1440;
+                case 'ultra': return 2160;
+                default: return 1080;
+            }
+        }
+
+        // Функции UI
+        function updateRoomUI() {
+            document.getElementById('roomNameNav').textContent = currentRoom.name;
+            document.title = `${currentRoom.name} - WatchParty`;
+            
+            if (currentRoom.videoUrl) {
+                document.getElementById('videoUrlInput').value = currentRoom.videoUrl;
+                loadVideo(currentRoom.videoUrl);
+            }
+            
+            // Обновляем настройки синхронизации
+            document.getElementById('autoSync').checked = autoSyncEnabled;
+            document.getElementById('syncQuality').value = syncQuality;
+            document.getElementById('syncDelay').value = syncDelay;
+            
+            updateParticipantsList(currentRoom.participants || []);
+        }
+
+        function openInviteModal() {
+            document.getElementById('inviteModal').classList.add('active');
+            document.getElementById('roomLink').value = `${window.location.origin}/room/${currentRoom.id}`;
+        }
+
+        function closeInviteModal() {
+            document.getElementById('inviteModal').classList.remove('active');
+        }
+
+        async function copyRoomLink() {
+            const linkInput = document.getElementById('roomLink');
+            linkInput.select();
+            linkInput.setSelectionRange(0, 99999);
+            
+            try {
+                await navigator.clipboard.writeText(linkInput.value);
+                showNotification('Ссылка скопирована в буфер обмена!', 'success');
+            } catch (err) {
+                showNotification('Ошибка копирования', 'error');
+            }
+        }
+
+        function sendEmailInvite() {
+            const email = document.getElementById('inviteEmail').value;
+            if (!email) {
+                showNotification('Введите email', 'error');
+                return;
+            }
+            
+            // В реальном приложении здесь был бы запрос к API
+            showNotification(`Приглашение отправлено на ${email}`, 'success');
+            document.getElementById('inviteEmail').value = '';
+        }
+
+        function leaveRoom() {
+            stopScreenShare();
+            
+            if (socket) {
+                socket.emit('leave-room', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id
+                });
+            }
+            window.location.href = '/dashboard';
+        }
+
+        // Вспомогательные функции
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // Экспорт функций для глобального использования
+        window.togglePlayPause = togglePlayPause;
+        window.toggleMute = toggleMute;
+        window.toggleFullscreen = toggleFullscreen;
+        window.sendMessage = sendMessage;
+        window.leaveRoom = leaveRoom;
+        window.openInviteModal = openInviteModal;
+        window.closeInviteModal = closeInviteModal;
+        window.copyRoomLink = copyRoomLink;
+        window.requestSync = requestSync;
+        window.startScreenShare = startScreenShare;
+        window.stopScreenShare = stopScreenShare;
+    </script>
+</body>
+</html>

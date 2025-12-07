@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой профиль - WatchParty</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <a href="/" style="text-decoration: none; color: inherit;">
+                    <span>WatchParty</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="/">Главная</a>
+                <a href="/dashboard">Мои комнаты</a>
+                <a href="/profile" class="active">Профиль</a>
+            </div>
+            <div class="user-menu">
+                <a href="/profile" class="user-profile-link">
+                    <div class="user-avatar-nav" id="userAvatar"></div>
+                    <span id="userName"></span>
+                </a>
+                <button onclick="logout()" class="btn btn-outline btn-small">
+                    <i class="fas fa-sign-out-alt"></i> Выйти
+                </button>
+            </div>
+        </nav>
+
+        <div class="profile-container">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <img src="" alt="Аватар" class="avatar-preview" id="avatarPreview">
+                    <label for="avatarUpload" class="avatar-upload">
+                        <i class="fas fa-camera"></i>
+                        <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                    </label>
+                </div>
+                <div class="profile-info">
+                    <h2 id="profileName"></h2>
+                    <p><i class="fas fa-envelope"></i> <span id="profileEmail"></span></p>
+                    <p><i class="fas fa-calendar-alt"></i> Зарегистрирован: <span id="profileCreated"></span></p>
+                    <div class="profile-stats">
+                        <div class="stat">
+                            <div class="stat-value" id="roomsCount">0</div>
+                            <div class="stat-label">Комнат</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="friendsCount">0</div>
+                            <div class="stat-label">Друзей</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value" id="hoursWatched">0</div>
+                            <div class="stat-label">Часов просмотра</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-tabs">
+                <button class="profile-tab active" data-tab="info">Основная информация</button>
+                <button class="profile-tab" data-tab="security">Безопасность</button>
+                <button class="profile-tab" data-tab="settings">Настройки</button>
+            </div>
+
+            <div class="tab-content active" id="infoTab">
+                <form id="profileForm" class="profile-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username" class="form-label">Имя пользователя</label>
+                            <input type="text" id="username" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" id="email" class="form-input" required disabled>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bio" class="form-label">О себе</label>
+                            <textarea id="bio" class="form-input" rows="4" placeholder="Расскажите о себе..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="website" class="form-label">Веб-сайт</label>
+                            <input type="url" id="website" class="form-input" placeholder="https://">
+                        </div>
+                        <div class="form-group">
+                            <label for="location" class="form-label">Местоположение</label>
+                            <input type="text" id="location" class="form-input" placeholder="Город, страна">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Сохранить изменения
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tab-content" id="securityTab">
+                <form id="securityForm" class="profile-form">
+                    <div class="form-group">
+                        <label for="currentPassword" class="form-label">Текущий пароль</label>
+                        <input type="password" id="currentPassword" class="form-input" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newPassword" class="form-label">Новый пароль</label>
+                            <input type="password" id="newPassword" class="form-input" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmNewPassword" class="form-label">Подтвердите новый пароль</label>
+                            <input type="password" id="confirmNewPassword" class="form-input" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input type="checkbox" id="twoFactor">
+                            <label for="twoFactor">Включить двухфакторную аутентификацию</label>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-shield-alt"></i> Обновить пароль
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tab-content" id="settingsTab">
+                <div class="settings-section">
+                    <h3><i class="fas fa-bell"></i> Уведомления</h3>
+                    <div class="settings-options">
+                        <div class="setting-option">
+                            <div class="setting-info">
+                                <h4>Уведомления о новых сообщениях</h4>
+                                <p>Получать уведомления о новых сообщениях в чате</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-option">
+                            <div class="setting-info">
+                                <h4>Приглашения в комнаты</h4>
+                                <p>Уведомления о приглашениях в новые комнаты</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-option">
+                            <div class="setting-info">
+                                <h4>Email рассылка</h4>
+                                <p>Получать новости и обновления на email</p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3><i class="fas fa-palette"></i> Внешний вид</h3>
+                    <div class="theme-options">
+                        <div class="theme-option active" data-theme="dark">
+                            <div class="theme-preview dark"></div>
+                            <span>Темная</span>
+                        </div>
+                        <div class="theme-option" data-theme="light">
+                            <div class="theme-preview light"></div>
+                            <span>Светлая</span>
+                        </div>
+                        <div class="theme-option" data-theme="orange">
+                            <div class="theme-preview orange"></div>
+                            <span>Оранжевая</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3><i class="fas fa-cog"></i> Другие настройки</h3>
+                    <div class="settings-actions">
+                        <button class="btn btn-outline" onclick="clearHistory()">
+                            <i class="fas fa-history"></i> Очистить историю
+                        </button>
+                        <button class="btn btn-outline" onclick="exportData()">
+                            <i class="fas fa-download"></i> Экспорт данных
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteAccount()">
+                            <i class="fas fa-trash"></i> Удалить аккаунт
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification" style="display: none;"></div>
+
+    <script src="script.js"></script>
+    <script>
+        let userData = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadUserData();
+            setupEventListeners();
+        });
+
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/user');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    userData = data.user;
+                    updateProfileUI();
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+
+        function updateProfileUI() {
+            // Основная информация
+            document.getElementById('userName').textContent = userData.username;
+            document.getElementById('profileName').textContent = userData.username;
+            document.getElementById('profileEmail').textContent = userData.email;
+            document.getElementById('profileCreated').textContent = new Date(userData.createdAt).toLocaleDateString('ru-RU');
+            
+            // Аватар
+            const avatarPreview = document.getElementById('avatarPreview');
+            const avatarNav = document.getElementById('userAvatar');
+            avatarPreview.src = userData.avatar;
+            avatarNav.style.backgroundImage = `url('${userData.avatar}')`;
+            
+            // Форма профиля
+            document.getElementById('username').value = userData.username;
+            document.getElementById('email').value = userData.email;
+            document.getElementById('bio').value = userData.bio || '';
+            document.getElementById('website').value = userData.website || '';
+            document.getElementById('location').value = userData.location || '';
+            
+            // Статистика
+            document.getElementById('roomsCount').textContent = userData.rooms ? userData.rooms.length : 0;
+        }
+
+        function setupEventListeners() {
+            // Загрузка аватара
+            document.getElementById('avatarUpload').addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (!file.type.match('image.*')) {
+                    showNotification('Пожалуйста, выберите изображение', 'error');
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    showNotification('Изображение должно быть меньше 5MB', 'error');
+                    return;
+                }
+                
+                const formData = new FormData();
+                formData.append('avatar', file);
+                formData.append('username', userData.username);
+                
+                try {
+                    const response = await fetch('/api/update-profile', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        userData = data.user;
+                        updateProfileUI();
+                        showNotification('Аватар обновлен', 'success');
+                    } else {
+                        showNotification(data.error || 'Ошибка обновления аватара', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Ошибка соединения', 'error');
+                }
+            });
+
+            // Переключение вкладок
+            document.querySelectorAll('.profile-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.dataset.tab;
+                    
+                    // Обновляем активные вкладки
+                    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(`${tabId}Tab`).classList.add('active');
+                });
+            });
+
+            // Форма профиля
+            document.getElementById('profileForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData();
+                formData.append('username', document.getElementById('username').value);
+                formData.append('bio', document.getElementById('bio').value);
+                formData.append('website', document.getElementById('website').value);
+                formData.append('location', document.getElementById('location').value);
+                
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+                submitBtn.disabled = true;
+                
+                try {
+                    const response = await fetch('/api/update-profile', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        userData = data.user;
+                        updateProfileUI();
+                        showNotification('Профиль обновлен', 'success');
+                    } else {
+                        showNotification(data.error || 'Ошибка обновления профиля', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Ошибка соединения', 'error');
+                } finally {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+
+            // Форма безопасности
+            document.getElementById('securityForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+                
+                if (newPassword !== confirmNewPassword) {
+                    showNotification('Пароли не совпадают', 'error');
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    showNotification('Пароль должен быть не менее 6 символов', 'error');
+                    return;
+                }
+                
+                // В реальном приложении здесь был бы запрос к API
+                showNotification('Функция смены пароля в разработке', 'info');
+            });
+
+            // Тема оформления
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
+                    option.classList.add('active');
+                    
+                    const theme = option.dataset.theme;
+                    // В реальном приложении здесь была бы смена темы
+                    showNotification(`Тема "${option.querySelector('span').textContent}" активирована`, 'success');
+                });
+            });
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                showNotification('Ошибка выхода', 'error');
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('Вы уверены, что хотите очистить историю просмотров?')) {
+                showNotification('История очищена', 'success');
+            }
+        }
+
+        function exportData() {
+            showNotification('Экспорт данных начат. Файл будет загружен в течение минуты.', 'info');
+        }
+
+        function deleteAccount() {
+            if (confirm('ВНИМАНИЕ: Это действие удалит ваш аккаунт и все данные. Вы уверены?')) {
+                showNotification('Функция удаления аккаунта в разработке', 'info');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
