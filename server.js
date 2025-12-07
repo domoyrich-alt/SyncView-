@@ -18,49 +18,32 @@ const io = socketIo(server, {
   }
 });
 
-// Определяем окружение
-const isRender = process.env.RENDER === 'true' || __dirname.includes('/opt/render/');
-console.log(`🚀 Запуск на Render: ${isRender}`);
-console.log(`📁 Текущая директория: ${__dirname}`);
-
-// Отключаем кэширование для всех маршрутов
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  next();
-});
-
-// Настройка сессий
-app.use(session({
-  secret: 'watchparty-secret-key-2023',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { 
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 
-  }
-}));
-
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Статические файлы
 app.use(express.static(__dirname));
 
-// Настройка загрузок на Render (используем /tmp)
+// Настройка сессий (ВАЖНО: на Render нужны правильные настройки)
+app.use(session({
+  secret: 'watchparty-secret-key-2023',
+  resave: true, // Изменено с false на true для Render
+  saveUninitialized: true,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production', // true для HTTPS на Render
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Для кросс-доменных запросов
+  }
+}));
+
+// Пути для загрузок на Render
+const isRender = process.env.RENDER === 'true';
 const uploadsDir = isRender ? '/tmp/uploads' : path.join(__dirname, 'uploads');
 const avatarsDir = path.join(uploadsDir, 'avatars');
 
 // Создаем директории если их нет
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-if (!fs.existsSync(avatarsDir)) {
-  fs.mkdirSync(avatarsDir, { recursive: true });
-}
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
 
 app.use('/uploads', express.static(uploadsDir));
 
@@ -77,17 +60,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (extname && mimetype) {
-      return cb(null, true);
-    }
-    cb(new Error('Только изображения (jpeg, jpg, png, gif, webp)!'));
-  }
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 // "База данных" в памяти
@@ -96,7 +69,7 @@ const rooms = new Map();
 const onlineUsers = new Map();
 const screenSharers = new Map();
 
-// Инициализация данных
+// Функция инициализации данных
 function initData() {
   const testUserId = uuidv4();
   users.set(testUserId, {
@@ -109,7 +82,7 @@ function initData() {
     rooms: []
   });
 
-  const demoRoomId = 'demo123';
+  const demoRoomId = uuidv4().substring(0, 8);
   rooms.set(demoRoomId, {
     id: demoRoomId,
     name: 'Демо комната',
@@ -132,46 +105,47 @@ initData();
 
 // Middleware для проверки аутентификации
 const requireAuth = (req, res, next) => {
+  console.log('Проверка авторизации. Сессия:', req.session);
+  console.log('ID пользователя в сессии:', req.session.userId);
+  
   if (!req.session.userId) {
+    console.log('Ошибка авторизации: сессия не найдена');
     return res.status(401).json({ error: 'Требуется авторизация' });
   }
-  next();
-};
-
-// Функция отправки HTML
-const sendHtml = (filename, res) => {
-  const filePath = path.join(__dirname, filename);
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    console.log(`Файл не найден: ${filename}`);
-    res.status(404).send(`<h1>Файл ${filename} не найден</h1>`);
+  
+  const user = users.get(req.session.userId);
+  if (!user) {
+    console.log('Ошибка авторизации: пользователь не найден в БД');
+    req.session.destroy();
+    return res.status(401).json({ error: 'Требуется авторизация' });
   }
+  
+  next();
 };
 
 // Маршруты
 app.get('/', (req, res) => {
-  sendHtml('index.html', res);
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/login', (req, res) => {
-  sendHtml('login.html', res);
+  res.sendFile(path.join(__dirname, 'login.html'));
 });
 
 app.get('/register', (req, res) => {
-  sendHtml('register.html', res);
+  res.sendFile(path.join(__dirname, 'register.html'));
 });
 
 app.get('/dashboard', requireAuth, (req, res) => {
-  sendHtml('dashboard.html', res);
+  res.sendFile(path.join(__dirname, 'dashboard.html'));
 });
 
 app.get('/profile', requireAuth, (req, res) => {
-  sendHtml('profile.html', res);
+  res.sendFile(path.join(__dirname, 'profile.html'));
 });
 
 app.get('/room/:id', requireAuth, (req, res) => {
-  sendHtml('room.html', res);
+  res.sendFile(path.join(__dirname, 'room.html'));
 });
 
 // API маршруты
@@ -207,18 +181,29 @@ app.post('/api/register', async (req, res) => {
     };
     
     users.set(userId, user);
+    
+    // Сохраняем в сессию
     req.session.userId = userId;
     req.session.username = username;
-    
-    res.json({ 
-      success: true, 
-      user: {
-        id: userId,
-        username,
-        email,
-        avatar: user.avatar
+    req.session.save((err) => {
+      if (err) {
+        console.error('Ошибка сохранения сессии:', err);
+        return res.status(500).json({ error: 'Ошибка сервера' });
       }
+      
+      console.log('Сессия сохранена для пользователя:', userId);
+      
+      res.json({ 
+        success: true, 
+        user: {
+          id: userId,
+          username,
+          email,
+          avatar: user.avatar
+        }
+      });
     });
+    
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -229,31 +214,46 @@ app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
+    console.log('Попытка входа для email:', email);
+    
     const user = Array.from(users.values()).find(u => u.email === email);
     if (!user) {
+      console.log('Пользователь не найден');
       return res.status(401).json({ error: 'Неверный email или пароль' });
     }
     
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      console.log('Неверный пароль');
       return res.status(401).json({ error: 'Неверный email или пароль' });
     }
     
     user.lastSeen = new Date().toISOString();
     users.set(user.id, user);
     
+    // Сохраняем в сессию
     req.session.userId = user.id;
     req.session.username = user.username;
     
-    res.json({ 
-      success: true, 
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar
+    req.session.save((err) => {
+      if (err) {
+        console.error('Ошибка сохранения сессии:', err);
+        return res.status(500).json({ error: 'Ошибка сервера' });
       }
+      
+      console.log('Пользователь авторизован:', user.id);
+      
+      res.json({ 
+        success: true, 
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar
+        }
+      });
     });
+    
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -261,8 +261,14 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true });
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Ошибка при выходе:', err);
+      return res.status(500).json({ error: 'Ошибка сервера' });
+    }
+    
+    res.json({ success: true });
+  });
 });
 
 app.get('/api/user', requireAuth, (req, res) => {
@@ -300,31 +306,6 @@ app.post('/api/update-profile', requireAuth, upload.single('avatar'), async (req
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Ошибка при обновлении профиля' });
-  }
-});
-
-app.post('/api/change-password', requireAuth, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const userId = req.session.userId;
-    const user = users.get(userId);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'Пользователь не найден' });
-    }
-    
-    const validPassword = await bcrypt.compare(currentPassword, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Неверный текущий пароль' });
-    }
-    
-    user.password = await bcrypt.hash(newPassword, 10);
-    users.set(userId, user);
-    
-    res.json({ success: true, message: 'Пароль изменен' });
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ error: 'Ошибка при изменении пароля' });
   }
 });
 
@@ -810,4 +791,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Сайт: https://syncview-5.onrender.com`);
   console.log(`📁 Директория: ${__dirname}`);
   console.log(`👤 Демо: demo@watchparty.com / demo123`);
+  console.log(`🔧 Настройки сессии: secure=${process.env.NODE_ENV === 'production'}`);
 });
