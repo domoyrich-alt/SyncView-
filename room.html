@@ -985,4 +985,36 @@
         window.toggleFullscreen = toggleFullscreen;
     </script>
 </body>
-</html>
+
+</html><script>
+// В функции loadUserData в room.html измени обработку ошибок:
+async function loadUserData() {
+  try {
+    const response = await fetch('/api/user');
+    
+    if (response.status === 401) {
+      // Если не авторизован, перенаправляем на логин
+      window.location.href = '/login';
+      return;
+    }
+    
+    if (!response.ok) {
+      throw new Error('Ошибка загрузки данных');
+    }
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      currentUser = data.user;
+      document.getElementById('userNameNav').textContent = currentUser.username;
+      const avatarNav = document.getElementById('userAvatarNav');
+      avatarNav.style.backgroundImage = `url('${currentUser.avatar}')`;
+    } else {
+      window.location.href = '/login';
+    }
+  } catch (error) {
+    console.error('Ошибка загрузки пользователя:', error);
+    window.location.href = '/login';
+  }
+}
+</script>
