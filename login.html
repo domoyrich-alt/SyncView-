@@ -160,5 +160,123 @@
             }, 3000);
         }
     </script>
-</body>
+</body><script>
+// Обработка формы входа
+document.addEventListener('DOMContentLoaded', function() {
+  const loginForm = document.getElementById('loginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      // Показать индикатор загрузки
+      const submitBtn = loginForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+      submitBtn.disabled = true;
+      
+      const formData = {
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      };
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+          credentials: 'include' // Важно для куки
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Успешный вход - показываем сообщение и перенаправляем
+          if (typeof showNotification === 'function') {
+            showNotification('Вход успешен!', 'success');
+          } else {
+            alert('Вход успешен!');
+          }
+          
+          // Даем время для сохранения сессии
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1000);
+        } else {
+          // Показать ошибку
+          if (typeof showNotification === 'function') {
+            showNotification(data.error || 'Ошибка входа', 'error');
+          } else {
+            alert(data.error || 'Ошибка входа');
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        if (typeof showNotification === 'function') {
+          showNotification('Ошибка соединения с сервером', 'error');
+        } else {
+          alert('Ошибка соединения с сервером');
+        }
+      } finally {
+        // Восстановить кнопку
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+      }
+    });
+  }
+  
+  // Кнопка демо входа
+  const demoBtn = document.getElementById('demoLoginBtn');
+  if (demoBtn) {
+    demoBtn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      
+      // Показать индикатор загрузки
+      const originalText = demoBtn.innerHTML;
+      demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Демо вход...';
+      demoBtn.disabled = true;
+      
+      const formData = {
+        email: 'demo@watchparty.com',
+        password: 'demo123'
+      };
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Успешный вход
+          if (typeof showNotification === 'function') {
+            showNotification('Демо вход успешен!', 'success');
+          }
+          
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 1000);
+        } else {
+          if (typeof showNotification === 'function') {
+            showNotification(data.error || 'Ошибка демо входа', 'error');
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        if (typeof showNotification === 'function') {
+          showNotification('Ошибка соединения', 'error');
+        }
+      } finally {
+        // Восстановить кнопку
+        demoBtn.innerHTML = originalText;
+        demoBtn.disabled = false;
+      }
+    });
+  }
+});
+</script>
+
 </html>
