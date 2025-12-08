@@ -801,6 +801,9 @@
         let twitchChatHideTimer = null;
         let twitchChatActive = false;
         
+        // Время последней синхронизации
+        let lastSyncTime = 0;
+        
         // Инициализация при загрузке
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 Инициализация WatchParty...');
@@ -890,12 +893,12 @@
                 
                 // Отправляем событие воспроизведения на сервер
                 if (isHost && socket && currentRoom) {
-                    console.log('▶️ Хост начал воспроизведение');
+                    console.log('▶️ Хост начал воспроизведение, время:', videoPlayer.currentTime);
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'play',
                         time: videoPlayer.currentTime,
-                        serverTime: Date.now()
+                        timestamp: Date.now()
                     });
                 }
             });
@@ -906,12 +909,12 @@
                 
                 // Отправляем событие паузы на сервер
                 if (isHost && socket && currentRoom) {
-                    console.log('⏸️ Хост поставил на паузу');
+                    console.log('⏸️ Хост поставил на паузу, время:', videoPlayer.currentTime);
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'pause',
                         time: videoPlayer.currentTime,
-                        serverTime: Date.now()
+                        timestamp: Date.now()
                     });
                 }
             });
@@ -921,16 +924,16 @@
                 
                 // Периодически синхронизируем время (только для хоста)
                 if (isHost && socket && currentRoom && isPlaying) {
-                    // Синхронизируем каждые 5 секунд или при значительном изменении
                     const now = Date.now();
-                    if (!videoPlayer.lastSyncTime || now - videoPlayer.lastSyncTime > 5000) {
+                    // Синхронизируем каждые 2 секунды
+                    if (!lastSyncTime || now - lastSyncTime > 2000) {
                         socket.emit('video-control', {
                             roomId: currentRoom.id,
                             action: 'seek',
                             time: videoPlayer.currentTime,
-                            serverTime: now
+                            timestamp: now
                         });
-                        videoPlayer.lastSyncTime = now;
+                        lastSyncTime = now;
                     }
                 }
             });
@@ -938,12 +941,12 @@
             videoPlayer.addEventListener('seeked', () => {
                 // Отправляем событие перемотки на сервер
                 if (isHost && socket && currentRoom) {
-                    console.log('↔️ Хост перемотал видео');
+                    console.log('↔️ Хост перемотал видео на:', videoPlayer.currentTime);
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'seek',
                         time: videoPlayer.currentTime,
-                        serverTime: Date.now()
+                        timestamp: Date.now()
                     });
                 }
             });
@@ -994,7 +997,9 @@
                     
                     // Синхронизируем состояние воспроизведения
                     if (data.videoState.isPlaying && videoPlayer.paused) {
-                        videoPlayer.play().catch(e => console.log('Не удалось автоматически воспроизвести:', e));
+                        setTimeout(() => {
+                            videoPlayer.play().catch(e => console.log('Не удалось автоматически воспроизвести:', e));
+                        }, 500);
                     } else if (!data.videoState.isPlaying && !videoPlayer.paused) {
                         videoPlayer.pause();
                     }
@@ -1037,46 +1042,50 @@
             socket.on('video-update', (data) => {
                 if (isHost) return; // Хост не синхронизирует с собой
                 
-                console.log('🎬 Получено обновление видео:', data);
+                console.log('🎬 Получено обновление видео:', data.action, 'время:', data.time);
+                
+                // Защита от устаревших сообщений
+                if (data.timestamp && Date.now() - data.timestamp > 5000) {
+                    console.log('⚠️ Игнорирую устаревшее обновление видео');
+                    return;
+                }
                 
                 switch(data.action) {
                     case 'play':
+                        if (videoPlayer && !videoPlayer.paused) {
+                            console.log('🎬 Уже воспроизводится, игнорирую play');
+                            return;
+                        }
                         if (videoPlayer) {
-                            // Учитываем сетевую задержку
-                            const currentTime = data.time;
-                            const serverTime = data.serverTime || Date.now();
-                            const latency = Date.now() - serverTime;
-                            const adjustedTime = currentTime + (latency / 1000);
-                            
-                            videoPlayer.currentTime = adjustedTime;
-                            videoPlayer.play().catch(e => console.log('Не удалось воспроизвести:', e));
+                            videoPlayer.currentTime = data.time;
+                            setTimeout(() => {
+                                videoPlayer.play().catch(e => console.log('Не удалось воспроизвести:', e));
+                            }, 100);
                             updatePlayButton(true);
+                            console.log('▶️ Воспроизведение синхронизировано');
                         }
                         break;
                         
                     case 'pause':
+                        if (videoPlayer && videoPlayer.paused) {
+                            console.log('🎬 Уже на паузе, игнорирую pause');
+                            return;
+                        }
                         if (videoPlayer) {
-                            // Учитываем сетевую задержку
-                            const currentTime = data.time;
-                            const serverTime = data.serverTime || Date.now();
-                            const latency = Date.now() - serverTime;
-                            const adjustedTime = currentTime + (latency / 1000);
-                            
-                            videoPlayer.currentTime = adjustedTime;
+                            videoPlayer.currentTime = data.time;
                             videoPlayer.pause();
                             updatePlayButton(false);
+                            console.log('⏸️ Пауза синхронизирована');
                         }
                         break;
                         
                     case 'seek':
                         if (videoPlayer) {
-                            // Учитываем сетевую задержку
-                            const currentTime = data.time;
-                            const serverTime = data.serverTime || Date.now();
-                            const latency = Date.now() - serverTime;
-                            const adjustedTime = currentTime + (latency / 1000);
-                            
-                            videoPlayer.currentTime = adjustedTime;
+                            // Плавная перемотка только если разница во времени > 1 секунды
+                            if (Math.abs(videoPlayer.currentTime - data.time) > 1) {
+                                videoPlayer.currentTime = data.time;
+                                console.log('↔️ Перемотка синхронизирована');
+                            }
                         }
                         break;
                         
@@ -1276,7 +1285,7 @@
                     roomId: currentRoom.id,
                     action: 'change-video',
                     url: url,
-                    serverTime: Date.now()
+                    timestamp: Date.now()
                 });
             }
             
@@ -1552,6 +1561,214 @@
             }, 10000);
         }
         
+        // Улучшенная демонстрация экрана
+        async function toggleScreenShare() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                showNotification('Демонстрация экрана не поддерживается');
+                return;
+            }
+            
+            try {
+                if (isSharingScreen) {
+                    stopScreenSharing();
+                    return;
+                }
+                
+                showNotification('Начинаю демонстрацию экрана...');
+                
+                // Запрашиваем доступ к экрану с аудио
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        frameRate: { ideal: 15, max: 30 }, // Увеличил FPS
+                        width: { ideal: 1280, max: 1920 },
+                        height: { ideal: 720, max: 1080 }
+                    },
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    }
+                });
+                
+                // Останавливаем текущее видео
+                hideAllPlayers();
+                
+                // Создаем canvas для захвата кадров
+                screenCanvas = document.createElement('canvas');
+                screenContext = screenCanvas.getContext('2d');
+                
+                // Создаем видео элемент для потока
+                const screenVideo = document.createElement('video');
+                screenVideo.srcObject = screenStream;
+                screenVideo.play();
+                
+                // Ждем загрузки метаданных
+                await new Promise(resolve => {
+                    screenVideo.onloadedmetadata = () => {
+                        // Оптимизируем размер для уменьшения лагов
+                        const maxWidth = 1280;
+                        const maxHeight = 720;
+                        const videoRatio = screenVideo.videoWidth / screenVideo.videoHeight;
+                        
+                        let width = screenVideo.videoWidth;
+                        let height = screenVideo.videoHeight;
+                        
+                        if (width > maxWidth) {
+                            width = maxWidth;
+                            height = maxWidth / videoRatio;
+                        }
+                        if (height > maxHeight) {
+                            height = maxHeight;
+                            width = maxHeight * videoRatio;
+                        }
+                        
+                        screenCanvas.width = Math.floor(width);
+                        screenCanvas.height = Math.floor(height);
+                        resolve();
+                    };
+                });
+                
+                // Отправляем событие начала демонстрации
+                socket.emit('screen-share-start', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id,
+                    username: currentUser.username,
+                    quality: 'medium',
+                    delay: 100
+                });
+                
+                isSharingScreen = true;
+                showScreenShareIndicator('Вы');
+                
+                // Оптимизированная отправка кадров
+                let lastFrameTime = 0;
+                const targetFPS = 15; // 15 кадров в секунду для баланса качества/производительности
+                const frameInterval = 1000 / targetFPS;
+                
+                screenInterval = setInterval(() => {
+                    const now = Date.now();
+                    if (now - lastFrameTime >= frameInterval) {
+                        captureAndSendFrame(screenVideo);
+                        lastFrameTime = now;
+                    }
+                }, 1000 / 30); // Проверяем 30 раз в секунду, но отправляем только 15 кадров
+                
+                // Обработка остановки демонстрации
+                screenStream.getTracks().forEach(track => {
+                    track.addEventListener('ended', () => {
+                        stopScreenSharing();
+                    });
+                });
+                
+                showNotification('Демонстрация экрана начата (с аудио)');
+                
+            } catch (error) {
+                console.error('❌ Ошибка демонстрации экрана:', error);
+                if (error.name !== 'NotAllowedError') {
+                    showNotification('Не удалось начать демонстрацию экрана');
+                }
+                // Пытаемся запросить без аудио
+                if (error.name === 'NotAllowedError' || error.name === 'NotFoundError') {
+                    try {
+                        showNotification('Пробую без аудио...');
+                        screenStream = await navigator.mediaDevices.getDisplayMedia({
+                            video: {
+                                frameRate: { ideal: 15, max: 30 },
+                                width: { ideal: 1280, max: 1920 },
+                                height: { ideal: 720, max: 1080 }
+                            },
+                            audio: false
+                        });
+                        
+                        // Повторяем процесс инициализации без аудио
+                        isSharingScreen = true;
+                        showScreenShareIndicator('Вы (без звука)');
+                        // ... остальной код инициализации
+                        
+                    } catch (audioError) {
+                        showNotification('Не удалось начать демонстрацию экрана');
+                    }
+                }
+            }
+        }
+        
+        function captureAndSendFrame(videoElement) {
+            if (!screenContext || !screenCanvas || !socket || !currentRoom) return;
+            
+            try {
+                // Рисуем кадр на canvas с оптимальным качеством
+                screenContext.drawImage(videoElement, 0, 0, screenCanvas.width, screenCanvas.height);
+                
+                // Конвертируем в base64 с балансом качества/размера
+                const frameData = screenCanvas.toDataURL('image/webp', 0.5); // WebP лучше сжимается
+                
+                // Отправляем кадр на сервер
+                socket.emit('screen-frame', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id,
+                    frame: frameData,
+                    timestamp: Date.now(),
+                    width: screenCanvas.width,
+                    height: screenCanvas.height
+                });
+            } catch (error) {
+                console.error('Ошибка захвата кадра:', error);
+            }
+        }
+        
+        function stopScreenSharing() {
+            if (screenInterval) {
+                clearInterval(screenInterval);
+                screenInterval = null;
+            }
+            
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+            
+            screenCanvas = null;
+            screenContext = null;
+            isSharingScreen = false;
+            
+            // Отправляем событие остановки
+            if (socket && currentRoom) {
+                socket.emit('screen-share-stop', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id
+                });
+            }
+            
+            hideScreenShareIndicator();
+            
+            // Возвращаем обычное видео
+            if (currentRoom && currentRoom.videoUrl) {
+                loadVideo(currentRoom.videoUrl);
+            }
+            
+            showNotification('Демонстрация экрана завершена');
+        }
+        
+        function showScreenShareIndicator(username) {
+            const indicator = document.getElementById('screenShareIndicator');
+            if (!indicator) return;
+            
+            indicator.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; color: white; font-size: 14px;">
+                    <i class="fas fa-desktop" style="color: var(--primary-color);"></i>
+                    <span>Демонстрация экрана: ${username}</span>
+                </div>
+            `;
+            indicator.style.display = 'block';
+        }
+        
+        function hideScreenShareIndicator() {
+            const indicator = document.getElementById('screenShareIndicator');
+            if (indicator) {
+                indicator.style.display = 'none';
+            }
+        }
+        
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             if (sidebar.classList.contains('open')) {
@@ -1665,161 +1882,6 @@
             });
             
             chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-        
-        // Демонстрация экрана
-        async function toggleScreenShare() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-                showNotification('Демонстрация экрана не поддерживается');
-                return;
-            }
-            
-            try {
-                if (isSharingScreen) {
-                    stopScreenSharing();
-                    return;
-                }
-                
-                showNotification('Начинаю демонстрацию экрана...');
-                
-                // Запрашиваем доступ к экрану
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: { ideal: 10, max: 15 },
-                        width: { ideal: 1280, max: 1920 },
-                        height: { ideal: 720, max: 1080 }
-                    },
-                    audio: false
-                });
-                
-                // Останавливаем текущее видео
-                hideAllPlayers();
-                
-                // Создаем canvas для захвата кадров
-                screenCanvas = document.createElement('canvas');
-                screenContext = screenCanvas.getContext('2d');
-                
-                // Создаем видео элемент для потока
-                const screenVideo = document.createElement('video');
-                screenVideo.srcObject = screenStream;
-                screenVideo.play();
-                
-                // Ждем загрузки метаданных
-                await new Promise(resolve => {
-                    screenVideo.onloadedmetadata = () => {
-                        screenCanvas.width = screenVideo.videoWidth;
-                        screenCanvas.height = screenVideo.videoHeight;
-                        resolve();
-                    };
-                });
-                
-                // Отправляем событие начала демонстрации
-                socket.emit('screen-share-start', {
-                    roomId: currentRoom.id,
-                    userId: currentUser.id,
-                    username: currentUser.username,
-                    quality: 'medium',
-                    delay: 100
-                });
-                
-                isSharingScreen = true;
-                showScreenShareIndicator('Вы');
-                
-                // Начинаем отправку кадров
-                screenInterval = setInterval(() => {
-                    captureAndSendFrame(screenVideo);
-                }, 100); // 10 кадров в секунду
-                
-                // Обработка остановки демонстрации
-                screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-                    stopScreenSharing();
-                });
-                
-                showNotification('Демонстрация экрана начата');
-                
-            } catch (error) {
-                console.error('❌ Ошибка демонстрации экрана:', error);
-                if (error.name !== 'NotAllowedError') {
-                    showNotification('Не удалось начать демонстрацию экрана');
-                }
-            }
-        }
-        
-        function captureAndSendFrame(videoElement) {
-            if (!screenContext || !screenCanvas || !socket || !currentRoom) return;
-            
-            try {
-                // Рисуем кадр на canvas
-                screenContext.drawImage(videoElement, 0, 0, screenCanvas.width, screenCanvas.height);
-                
-                // Конвертируем в base64 (JPEG с низким качеством для экономии трафика)
-                const frameData = screenCanvas.toDataURL('image/jpeg', 0.3);
-                
-                // Отправляем кадр на сервер
-                socket.emit('screen-frame', {
-                    roomId: currentRoom.id,
-                    userId: currentUser.id,
-                    frame: frameData,
-                    timestamp: Date.now(),
-                    width: screenCanvas.width,
-                    height: screenCanvas.height
-                });
-            } catch (error) {
-                console.error('Ошибка захвата кадра:', error);
-            }
-        }
-        
-        function stopScreenSharing() {
-            if (screenInterval) {
-                clearInterval(screenInterval);
-                screenInterval = null;
-            }
-            
-            if (screenStream) {
-                screenStream.getTracks().forEach(track => track.stop());
-                screenStream = null;
-            }
-            
-            screenCanvas = null;
-            screenContext = null;
-            isSharingScreen = false;
-            
-            // Отправляем событие остановки
-            if (socket && currentRoom) {
-                socket.emit('screen-share-stop', {
-                    roomId: currentRoom.id,
-                    userId: currentUser.id
-                });
-            }
-            
-            hideScreenShareIndicator();
-            
-            // Возвращаем обычное видео
-            if (currentRoom && currentRoom.videoUrl) {
-                loadVideo(currentRoom.videoUrl);
-            }
-            
-            showNotification('Демонстрация экрана завершена');
-        }
-        
-        function showScreenShareIndicator(username) {
-            const indicator = document.getElementById('screenShareIndicator');
-            if (!indicator) return;
-            
-            indicator.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 8px; color: white; font-size: 14px;">
-                    <i class="fas fa-desktop" style="color: var(--primary-color);"></i>
-                    <span>Демонстрация экрана: ${username}</span>
-                </div>
-            `;
-            indicator.style.display = 'block';
-        }
-        
-        function hideScreenShareIndicator() {
-            const indicator = document.getElementById('screenShareIndicator');
-            if (indicator) {
-                indicator.style.display = 'none';
-            }
         }
         
         function openInviteModal() {
