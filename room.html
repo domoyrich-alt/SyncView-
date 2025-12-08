@@ -646,13 +646,32 @@
         </div>
         
         <!-- Демонстрация экрана -->
-        <div class="screen-share-overlay" id="screenShareIndicator">
-            <div style="display: flex; align-items: center; gap: 8px; color: white; font-size: 14px;">
-                <i class="fas fa-desktop" style="color: var(--primary-color);"></i>
-                <span>Демонстрация экрана</span>
-            </div>
-        </div>
+       // ... существующий код ...
+
+// Демонстрация экрана
+async function toggleScreenShare() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        showNotification('Демонстрация экрана не поддерживается');
+        return;
+    }
+    
+    try {
+        if (isSharingScreen) {
+            stopScreenSharing();
+            return;
+        }
         
+        showNotification('Начинаю демонстрацию экрана...');
+        
+        // Запрашиваем доступ к экрану с аудио
+        // ... весь код, который я отправил ...
+    } catch (error) {
+        console.error('❌ Ошибка демонстрации экрана:', error);
+        showNotification('Ошибка: ' + error.message);
+    }
+}
+
+// ... остальной код ...
         <!-- Twitch-like чат оверлей -->
         <div class="twitch-chat-overlay" id="twitchChatOverlay">
             <!-- Сообщения будут добавляться сюда -->
@@ -2004,4 +2023,5 @@
     </script>
 </body>
 </html>
+
 
