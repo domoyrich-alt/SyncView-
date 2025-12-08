@@ -399,6 +399,67 @@
             display: none;
         }
         
+        /* Twitch-подобный overlay чат */
+        .twitch-chat-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            max-height: 70vh;
+            overflow: hidden;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        
+        .twitch-chat-overlay.active {
+            opacity: 1;
+        }
+        
+        .twitch-message {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+            max-width: 100%;
+            word-break: break-word;
+            animation: messageFadeIn 0.5s;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        
+        .twitch-message .username {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .twitch-message.system .username {
+            color: var(--warning);
+        }
+        
+        .twitch-message.system {
+            background: rgba(255, 204, 0, 0.2);
+        }
+        
+        @keyframes messageFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
         /* Мобильная нижняя панель */
         .mobile-bottom-bar {
             position: fixed;
@@ -501,6 +562,17 @@
             .mobile-bottom-bar {
                 display: flex;
             }
+            
+            .twitch-chat-overlay {
+                width: 250px;
+                top: 10px;
+                right: 10px;
+            }
+            
+            .twitch-message {
+                font-size: 13px;
+                padding: 8px 12px;
+            }
         }
         
         @media (min-width: 769px) {
@@ -555,6 +627,11 @@
                 <i class="fas fa-desktop" style="color: var(--primary-color);"></i>
                 <span>Демонстрация экрана</span>
             </div>
+        </div>
+        
+        <!-- Twitch-like чат оверлей -->
+        <div class="twitch-chat-overlay" id="twitchChatOverlay">
+            <!-- Сообщения будут добавляться сюда -->
         </div>
         
         <!-- Основная секция с видео -->
@@ -720,6 +797,10 @@
         let isFullscreen = false;
         let isPlaying = false;
         
+        // Таймер для скрытия Twitch-чата
+        let twitchChatHideTimer = null;
+        let twitchChatActive = false;
+        
         // Инициализация при загрузке
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('🚀 Инициализация WatchParty...');
@@ -807,11 +888,14 @@
                 isPlaying = true;
                 updatePlayButton(true);
                 
+                // Отправляем событие воспроизведения на сервер
                 if (isHost && socket && currentRoom) {
+                    console.log('▶️ Хост начал воспроизведение');
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'play',
-                        time: videoPlayer.currentTime
+                        time: videoPlayer.currentTime,
+                        serverTime: Date.now()
                     });
                 }
             });
@@ -820,16 +904,49 @@
                 isPlaying = false;
                 updatePlayButton(false);
                 
+                // Отправляем событие паузы на сервер
                 if (isHost && socket && currentRoom) {
+                    console.log('⏸️ Хост поставил на паузу');
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'pause',
-                        time: videoPlayer.currentTime
+                        time: videoPlayer.currentTime,
+                        serverTime: Date.now()
                     });
                 }
             });
             
-            videoPlayer.addEventListener('timeupdate', updateProgressBar);
+            videoPlayer.addEventListener('timeupdate', () => {
+                updateProgressBar();
+                
+                // Периодически синхронизируем время (только для хоста)
+                if (isHost && socket && currentRoom && isPlaying) {
+                    // Синхронизируем каждые 5 секунд или при значительном изменении
+                    const now = Date.now();
+                    if (!videoPlayer.lastSyncTime || now - videoPlayer.lastSyncTime > 5000) {
+                        socket.emit('video-control', {
+                            roomId: currentRoom.id,
+                            action: 'seek',
+                            time: videoPlayer.currentTime,
+                            serverTime: now
+                        });
+                        videoPlayer.lastSyncTime = now;
+                    }
+                }
+            });
+            
+            videoPlayer.addEventListener('seeked', () => {
+                // Отправляем событие перемотки на сервер
+                if (isHost && socket && currentRoom) {
+                    console.log('↔️ Хост перемотал видео');
+                    socket.emit('video-control', {
+                        roomId: currentRoom.id,
+                        action: 'seek',
+                        time: videoPlayer.currentTime,
+                        serverTime: Date.now()
+                    });
+                }
+            });
             
             document.addEventListener('fullscreenchange', handleFullscreenChange);
             
@@ -874,6 +991,18 @@
                 
                 if (data.videoState && data.videoState.url) {
                     loadVideo(data.videoState.url);
+                    
+                    // Синхронизируем состояние воспроизведения
+                    if (data.videoState.isPlaying && videoPlayer.paused) {
+                        videoPlayer.play().catch(e => console.log('Не удалось автоматически воспроизвести:', e));
+                    } else if (!data.videoState.isPlaying && !videoPlayer.paused) {
+                        videoPlayer.pause();
+                    }
+                    
+                    // Синхронизируем время
+                    if (data.videoState.currentTime && Math.abs(videoPlayer.currentTime - data.videoState.currentTime) > 2) {
+                        videoPlayer.currentTime = data.videoState.currentTime;
+                    }
                 }
                 
                 // Обработка демонстрации экрана
@@ -884,19 +1013,77 @@
             
             socket.on('user-joined', (data) => {
                 addSystemMessage(`👋 ${data.username} присоединился`);
+                addTwitchMessage({
+                    username: 'Система',
+                    message: `${data.username} присоединился`,
+                    isSystem: true
+                });
             });
             
             socket.on('user-left', (data) => {
                 addSystemMessage(`👋 Участник покинул комнату`);
+                addTwitchMessage({
+                    username: 'Система',
+                    message: 'Участник покинул комнату',
+                    isSystem: true
+                });
             });
             
             socket.on('new-message', (message) => {
                 addMessage(message);
+                addTwitchMessage(message);
             });
             
             socket.on('video-update', (data) => {
-                if (isHost) return;
-                handleVideoUpdate(data);
+                if (isHost) return; // Хост не синхронизирует с собой
+                
+                console.log('🎬 Получено обновление видео:', data);
+                
+                switch(data.action) {
+                    case 'play':
+                        if (videoPlayer) {
+                            // Учитываем сетевую задержку
+                            const currentTime = data.time;
+                            const serverTime = data.serverTime || Date.now();
+                            const latency = Date.now() - serverTime;
+                            const adjustedTime = currentTime + (latency / 1000);
+                            
+                            videoPlayer.currentTime = adjustedTime;
+                            videoPlayer.play().catch(e => console.log('Не удалось воспроизвести:', e));
+                            updatePlayButton(true);
+                        }
+                        break;
+                        
+                    case 'pause':
+                        if (videoPlayer) {
+                            // Учитываем сетевую задержку
+                            const currentTime = data.time;
+                            const serverTime = data.serverTime || Date.now();
+                            const latency = Date.now() - serverTime;
+                            const adjustedTime = currentTime + (latency / 1000);
+                            
+                            videoPlayer.currentTime = adjustedTime;
+                            videoPlayer.pause();
+                            updatePlayButton(false);
+                        }
+                        break;
+                        
+                    case 'seek':
+                        if (videoPlayer) {
+                            // Учитываем сетевую задержку
+                            const currentTime = data.time;
+                            const serverTime = data.serverTime || Date.now();
+                            const latency = Date.now() - serverTime;
+                            const adjustedTime = currentTime + (latency / 1000);
+                            
+                            videoPlayer.currentTime = adjustedTime;
+                        }
+                        break;
+                        
+                    case 'change-video':
+                        loadVideo(data.url);
+                        break;
+                }
             });
             
             // Демонстрация экрана - начало
@@ -914,6 +1101,11 @@
                 document.getElementById('screenFrame').style.display = 'block';
                 
                 addSystemMessage(`🖥️ ${data.username} начал демонстрацию экрана`);
+                addTwitchMessage({
+                    username: 'Система',
+                    message: `${data.username} начал демонстрацию экрана`,
+                    isSystem: true
+                });
             });
             
             // Получение кадров экрана
@@ -946,6 +1138,11 @@
                 }
                 
                 addSystemMessage(`🖥️ Демонстрация экрана завершена`);
+                addTwitchMessage({
+                    username: 'Система',
+                    message: 'Демонстрация экрана завершена',
+                    isSystem: true
+                });
             });
             
             socket.on('error', (data) => {
@@ -1007,6 +1204,18 @@
             if (screenShareBtn) {
                 screenShareBtn.addEventListener('click', toggleScreenShare);
             }
+            
+            // Управление Twitch-чатом
+            const twitchChatOverlay = document.getElementById('twitchChatOverlay');
+            if (twitchChatOverlay) {
+                twitchChatOverlay.addEventListener('mouseenter', () => {
+                    clearTwitchChatHideTimer();
+                });
+                
+                twitchChatOverlay.addEventListener('mouseleave', () => {
+                    startTwitchChatHideTimer();
+                });
+            }
         }
         
         // Загрузка видео
@@ -1066,7 +1275,8 @@
                 socket.emit('video-control', {
                     roomId: currentRoom.id,
                     action: 'change-video',
-                    url: url
+                    url: url,
+                    serverTime: Date.now()
                 });
             }
             
@@ -1173,6 +1383,11 @@
             
             player.classList.add('active');
             player.src = url;
+            
+            // Ждем загрузки метаданных
+            player.onloadedmetadata = () => {
+                updateDuration();
+            };
         }
         
         function hideAllPlayers() {
@@ -1184,7 +1399,10 @@
         function togglePlay() {
             if (currentVideoType === 'direct') {
                 if (videoPlayer.paused) {
-                    videoPlayer.play();
+                    videoPlayer.play().catch(e => {
+                        console.log('Не удалось воспроизвести:', e);
+                        showNotification('Нажмите на видео для воспроизведения');
+                    });
                 } else {
                     videoPlayer.pause();
                 }
@@ -1245,7 +1463,16 @@
             }
         }
         
+        function updateDuration() {
+            const duration = videoPlayer.duration || 0;
+            const durationElement = document.getElementById('duration');
+            if (durationElement) {
+                durationElement.textContent = formatTime(duration);
+            }
+        }
+        
         function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -1260,6 +1487,69 @@
             const newTime = percent * videoPlayer.duration;
             
             videoPlayer.currentTime = newTime;
+        }
+        
+        // Twitch-подобный чат
+        function addTwitchMessage(message) {
+            const overlay = document.getElementById('twitchChatOverlay');
+            if (!overlay) return;
+            
+            // Активируем чат
+            overlay.classList.add('active');
+            twitchChatActive = true;
+            
+            // Очищаем таймер скрытия
+            clearTwitchChatHideTimer();
+            
+            // Создаем элемент сообщения
+            const messageElement = document.createElement('div');
+            messageElement.className = 'twitch-message';
+            if (message.isSystem) {
+                messageElement.classList.add('system');
+            }
+            
+            const time = new Date();
+            const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            
+            messageElement.innerHTML = `
+                <div><span class="username">${message.username}</span> [${timeString}]</div>
+                <div>${escapeHtml(message.message)}</div>
+            `;
+            
+            // Удаляем старые сообщения (максимум 4)
+            const messages = overlay.querySelectorAll('.twitch-message');
+            if (messages.length >= 4) {
+                messages[0].remove();
+            }
+            
+            // Добавляем новое сообщение
+            overlay.appendChild(messageElement);
+            
+            // Прокручиваем вниз
+            overlay.scrollTop = overlay.scrollHeight;
+            
+            // Запускаем таймер скрытия чата
+            startTwitchChatHideTimer();
+        }
+        
+        function clearTwitchChatHideTimer() {
+            if (twitchChatHideTimer) {
+                clearTimeout(twitchChatHideTimer);
+                twitchChatHideTimer = null;
+            }
+        }
+        
+        function startTwitchChatHideTimer() {
+            clearTwitchChatHideTimer();
+            
+            // Скрываем чат через 10 секунд если нет активности
+            twitchChatHideTimer = setTimeout(() => {
+                const overlay = document.getElementById('twitchChatOverlay');
+                if (overlay) {
+                    overlay.classList.remove('active');
+                    twitchChatActive = false;
+                }
+            }, 10000);
         }
         
         function toggleSidebar() {
@@ -1529,38 +1819,6 @@
             const indicator = document.getElementById('screenShareIndicator');
             if (indicator) {
                 indicator.style.display = 'none';
-            }
-        }
-        
-        function handleVideoUpdate(data) {
-            if (isHost || !currentRoom) return;
-            
-            switch(data.action) {
-                case 'play':
-                    if (currentVideoType === 'direct' && videoPlayer) {
-                        videoPlayer.currentTime = data.time;
-                        videoPlayer.play();
-                    }
-                    updatePlayButton(true);
-                    break;
-                    
-                case 'pause':
-                    if (currentVideoType === 'direct' && videoPlayer) {
-                        videoPlayer.currentTime = data.time;
-                        videoPlayer.pause();
-                    }
-                    updatePlayButton(false);
-                    break;
-                    
-                case 'seek':
-                    if (currentVideoType === 'direct' && videoPlayer) {
-                        videoPlayer.currentTime = data.time;
-                    }
-                    break;
-                    
-                case 'change-video':
-                    loadVideo(data.url);
-                    break;
             }
         }
         
