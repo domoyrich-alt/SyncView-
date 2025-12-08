@@ -1534,7 +1534,15 @@
         }
         
         function showNotification(message) {
-            const notification = document.getElementById('notification');
+            // Создаем элемент уведомления, если его нет
+            let notification = document.getElementById('notification');
+            if (!notification) {
+                notification = document.createElement('div');
+                notification.id = 'notification';
+                notification.className = 'notification';
+                document.body.appendChild(notification);
+            }
+            
             notification.textContent = message;
             notification.style.display = 'block';
             
