@@ -1,202 +1,201 @@
-<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WatchParty - Комната</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.0.10/hls.min.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://www.youtube.com/iframe_api"></script> <!-- Для YouTube API -->
-  <style>
-    body {
-      background: linear-gradient(to bottom, #e0f7fa, #ffffff); /* Градиентный фон */
-      font-family: 'Arial', sans-serif;
-      color: #333;
-      margin: 0;
-      padding: 0;
-    }
-    #loadingOverlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.8);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-    }
-    #loadingText {
-      font-size: 18px;
-      color: #007bff; /* Синий цвет */
-    }
-    .nav-bar {
-      background-color: #007bff; /* Синий хедер */
-      color: white;
-      padding: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .nav-bar h2 {
-      margin: 0;
-    }
-    .user-info {
-      display: flex;
-      align-items: center;
-    }
-    .user-avatar {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background-color: #ddd;
-      margin-right: 10px;
-    }
-    .main-container {
-      display: flex;
-      height: calc(100vh - 50px);
-    }
-    .video-section {
-      flex: 3;
-      padding: 10px;
-      background-color: #f8f9fa;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    #videoPlayer {
-      width: 100%;
-      height: 400px;
-      background-color: #000;
-      border-radius: 8px;
-    }
-    .controls {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 10px;
-    }
-    .btn {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      color: white;
-    }
-    .btn-primary {
-      background-color: #007bff;
-    }
-    .btn-danger {
-      background-color: #dc3545;
-    }
-    .btn-success {
-      background-color: #28a745; /* Зелёные кнопки */
-    }
-    .chat-section, .participants-section {
-      flex: 1;
-      padding: 10px;
-      background-color: #ffffff;
-      border-left: 1px solid #ddd;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    #chatMessages {
-      height: 300px;
-      overflow-y: auto;
-      padding: 10px;
-      background-color: #e9ecef;
-      border-radius: 4px;
-    }
-    .chat-message {
-      margin-bottom: 10px;
-      display: flex;
-      align-items: flex-start;
-    }
-    .message-avatar img {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-    }
-    .message-content {
-      margin-left: 10px;
-    }
-    .system {
-      color: #6c757d;
-    }
-    #notification {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 20px;
-      border-radius: 4px;
-      display: none;
-    }
-    .info { background-color: #17a2b8; color: white; }
-    .success { background-color: #28a745; color: white; }
-    .error { background-color: #dc3545; color: white; }
-    /* Дополнительные стили для модалов и т.д. */
-    #inviteModal {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.2);
-      display: none;
-    }
-    #inviteModal.active { display: block; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WatchParty - Комната</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.0.10/hls.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script> <!-- Для YouTube API -->
+<style>
+body {
+background: #000000; /* Черный фон */
+font-family: 'Arial', sans-serif;
+color: #ffffff; /* Белый текст для контраста */
+margin: 0;
+padding: 0;
+}
+#loadingOverlay {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background: rgba(0, 0, 0, 0.8); /* Темный overlay */
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+z-index: 9999;
+}
+#loadingText {
+font-size: 18px;
+color: #ff8c00; /* Темно-оранжевый цвет */
+}
+.nav-bar {
+background-color: #ff8c00; /* Темно-оранжевый хедер */
+color: #000000; /* Черный текст */
+padding: 10px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+}
+.nav-bar h2 {
+margin: 0;
+}
+.user-info {
+display: flex;
+align-items: center;
+}
+.user-avatar {
+width: 30px;
+height: 30px;
+border-radius: 50%;
+background-color: #333333; /* Темный серый для аватара */
+margin-right: 10px;
+}
+.main-container {
+display: flex;
+height: calc(100vh - 50px);
+}
+.video-section {
+flex: 3;
+padding: 10px;
+background-color: #111111; /* Темный фон для видео */
+border-radius: 8px;
+box-shadow: 0 2px 10px rgba(255, 140, 0, 0.3); /* Тень с оранжевым оттенком */
+}
+#videoPlayer {
+width: 100%;
+height: 400px;
+background-color: #000000;
+border-radius: 8px;
+}
+.controls {
+display: flex;
+justify-content: space-around;
+margin-top: 10px;
+}
+.btn {
+padding: 8px 16px;
+border: none;
+border-radius: 4px;
+cursor: pointer;
+color: #000000; /* Черный текст на кнопках */
+}
+.btn-primary {
+background-color: #ff8c00; /* Темно-оранжевый */
+}
+.btn-danger {
+background-color: #b22222; /* Темно-красный для danger */
+}
+.btn-success {
+background-color: #ff8c00; /* Темно-оранжевый для success */
+}
+.chat-section, .participants-section {
+flex: 1;
+padding: 10px;
+background-color: #111111; /* Темный фон */
+border-left: 1px solid #333333;
+border-radius: 8px;
+box-shadow: 0 2px 10px rgba(255, 140, 0, 0.3);
+}
+#chatMessages {
+height: 300px;
+overflow-y: auto;
+padding: 10px;
+background-color: #222222; /* Темно-серый чат */
+border-radius: 4px;
+}
+.chat-message {
+margin-bottom: 10px;
+display: flex;
+align-items: flex-start;
+}
+.message-avatar img {
+width: 40px;
+height: 40px;
+border-radius: 50%;
+}
+.message-content {
+margin-left: 10px;
+}
+.system {
+color: #ff8c00; /* Оранжевый для системных сообщений */
+}
+#notification {
+position: fixed;
+bottom: 20px;
+right: 20px;
+padding: 10px 20px;
+border-radius: 4px;
+display: none;
+}
+.info { background-color: #ff8c00; color: #000000; }
+.success { background-color: #ff8c00; color: #000000; }
+.error { background-color: #b22222; color: #ffffff; }
+/* Дополнительные стили для модалов и т.д. */
+#inviteModal {
+position: fixed;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+background: #111111; /* Темный модал */
+padding: 20px;
+border-radius: 8px;
+box-shadow: 0 0 20px rgba(255, 140, 0, 0.5);
+display: none;
+color: #ffffff;
+}
+#inviteModal.active { display: block; }
+</style>
 </head>
 <body>
-  <div id="loadingOverlay">
-    <i class="fas fa-spinner fa-spin fa-3x" style="color: #007bff;"></i>
-    <p id="loadingText">Загрузка...</p>
-  </div>
-  <nav class="nav-bar">
-    <h2 id="roomNameNav">Комната</h2>
-    <div class="user-info">
-      <div id="userAvatarNav" class="user-avatar"></div>
-      <span id="userNameNav">Пользователь</span>
-    </div>
-  </nav>
-  <div class="main-container">
-    <div class="video-section">
-      <video id="videoPlayer" controls></video>
-      <div class="controls">
-        <button id="playPauseBtn" class="btn btn-primary"><i class="fas fa-play"></i> Воспроизвести/Пауза</button>
-        <button id="muteBtn" class="btn btn-primary"><i class="fas fa-volume-up"></i></button>
-        <button id="fullscreenBtn" class="btn btn-primary"><i class="fas fa-expand"></i></button>
-        <button id="loadVideoBtn" class="btn btn-success"><i class="fas fa-upload"></i> Загрузить видео</button>
-        <button id="screenShareBtn" class="btn btn-primary"><i class="fas fa-desktop"></i> Показать экран</button>
-        <button id="inviteBtn" class="btn btn-primary"><i class="fas fa-user-plus"></i> Пригласить</button>
-      </div>
-      <input type="text" id="videoUrlInput" placeholder="URL видео">
-      <div id="syncNotification" style="display: none;">
-        <span id="syncIndicatorText"></span>
-      </div>
-    </div>
-    <div class="chat-section">
-      <h3>Чат <span id="participantsCount">0</span></h3>
-      <div id="chatMessages"></div>
-      <input type="text" id="chatInput" placeholder="Сообщение...">
-      <button id="sendMessageBtn" class="btn btn-success"><i class="fas fa-paper-plane"></i> Отправить</button>
-    </div>
-    <div class="participants-section">
-      <h3>Участники <span id="participantsListCount">0</span></h3>
-      <div id="participantsList"></div>
-    </div>
-  </div>
-  <div id="inviteModal">
-    <h3>Пригласить в комнату</h3>
-    <input type="text" id="roomLink" readonly>
-    <button id="copyLinkBtn" class="btn btn-primary">Копировать</button>
-    <button onclick="closeInviteModal()" class="btn btn-danger">Закрыть</button>
-  </div>
-  <div id="notification"></div>
-
+<div id="loadingOverlay">
+<i class="fas fa-spinner fa-spin fa-3x" style="color: #ff8c00;"></i>
+<p id="loadingText">Загрузка...</p>
+</div>
+<nav class="nav-bar">
+<h2 id="roomNameNav">Комната</h2>
+<div class="user-info">
+<div id="userAvatarNav" class="user-avatar"></div>
+<span id="userNameNav">Пользователь</span>
+</div>
+</nav>
+<div class="main-container">
+<div class="video-section">
+<video id="videoPlayer" controls></video>
+<div class="controls">
+<button id="playPauseBtn" class="btn btn-primary"><i class="fas fa-play"></i> Воспроизвести/Пауза</button>
+<button id="muteBtn" class="btn btn-primary"><i class="fas fa-volume-up"></i></button>
+<button id="fullscreenBtn" class="btn btn-primary"><i class="fas fa-expand"></i></button>
+<button id="loadVideoBtn" class="btn btn-success"><i class="fas fa-upload"></i> Загрузить видео</button>
+<button id="screenShareBtn" class="btn btn-primary"><i class="fas fa-desktop"></i> Показать экран</button>
+<button id="inviteBtn" class="btn btn-primary"><i class="fas fa-user-plus"></i> Пригласить</button>
+</div>
+<input type="text" id="videoUrlInput" placeholder="URL видео" style="background-color: #222222; color: #ffffff; border: 1px solid #ff8c00;">
+<div id="syncNotification" style="display: none; color: #ff8c00;">
+<span id="syncIndicatorText"></span>
+</div>
+</div>
+<div class="chat-section">
+<h3>Чат <span id="participantsCount">0</span></h3>
+<div id="chatMessages"></div>
+<input type="text" id="chatInput" placeholder="Сообщение..." style="background-color: #222222; color: #ffffff; border: 1px solid #ff8c00;">
+<button id="sendMessageBtn" class="btn btn-success"><i class="fas fa-paper-plane"></i> Отправить</button>
+</div>
+<div class="participants-section">
+<h3>Участники <span id="participantsListCount">0</span></h3>
+<div id="participantsList"></div>
+</div>
+</div>
+<div id="inviteModal">
+<h3>Пригласить в комнату</h3>
+<input type="text" id="roomLink" readonly style="background-color: #222222; color: #ffffff; border: 1px solid #ff8c00;">
+<button id="copyLinkBtn" class="btn btn-primary">Копировать</button>
+<button onclick="closeInviteModal()" class="btn btn-danger">Закрыть</button>
+</div>
+<div id="notification"></div>
   <script>
     const socket = io();
     let currentRoom = null;
@@ -501,11 +500,11 @@
     function updateVolumeIcon() {
       const muteBtn = document.getElementById('muteBtn');
       if (videoPlayer.muted || videoPlayer.volume === 0) {
-        muteBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+        muteBtn.innerHTML = '';
       } else if (videoPlayer.volume < 0.5) {
-        muteBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+        muteBtn.innerHTML = '';
       } else {
-        muteBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        muteBtn.innerHTML = '';
       }
     }
 
@@ -525,16 +524,16 @@
       const time = new Date(message.timestamp);
       const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
       messageElement.innerHTML = `
-        <div class="message-avatar">
-          <img src="${message.avatar}" alt="${message.username}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
-        </div>
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-username">${escapeHtml(message.username)}</span>
-            <span class="message-time">${timeString}</span>
-          </div>
-          <div class="message-text">${escapeHtml(message.message)}</div>
-        </div>
+        
+           $${message.username}
+        
+        
+          
+            ${escapeHtml(message.username)}
+            ${timeString}
+          
+          ${escapeHtml(message.message)}
+        
       `;
       chatMessages.appendChild(messageElement);
       chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -547,13 +546,13 @@
       const time = new Date();
       const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
       messageElement.innerHTML = `
-        <div class="message-content">
-          <div class="message-header">
-            <span class="message-username"><i class="fas fa-info-circle"></i> Система</span>
-            <span class="message-time">${timeString}</span>
-          </div>
-          <div class="message-text">${escapeHtml(text)}</div>
-        </div>
+        
+          
+             Система
+            ${timeString}
+          
+          ${escapeHtml(text)}
+        
       `;
       chatMessages.appendChild(messageElement);
       chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -561,7 +560,7 @@
 
     function loadChatMessages(messages) {
       const chatMessages = document.getElementById('chatMessages');
-      chatMessages.innerHTML = '<div class="system-message"><i class="fas fa-info-circle"></i> Добро пожаловать в чат комнаты!</div>';
+      chatMessages.innerHTML = ' Добро пожаловать в чат комнаты!';
       messages.forEach(message => addMessageToChat(message));
     }
 
@@ -577,17 +576,17 @@
         const participantElement = document.createElement('div');
         participantElement.className = 'participant-item';
         participantElement.innerHTML = `
-          <div class="participant-avatar">
-            <img src="${participant.avatar}" alt="${participant.username}" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
-          </div>
-          <div class="participant-info">
-            <div class="participant-name">
-              ${escapeHtml(participant.username)} ${isCurrentUser ? '<span class="you-badge">Вы</span>' : ''}
-            </div>
-            <div class="participant-role">
+          
+             $${participant.username}
+          
+          
+            
+              ${escapeHtml(participant.username)} ${isCurrentUser ? 'Вы' : ''}
+            
+            
               ${participant.id === currentRoom.hostId ? 'Хост' : 'Участник'}
-            </div>
-          </div>
+            
+          
         `;
         participantsList.appendChild(participantElement);
       });
@@ -667,7 +666,7 @@
         screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: document.getElementById('syncAudio').checked });
         videoPlayer.srcObject = screenStream;
         videoPlayer.muted = true;
-        document.getElementById('screenShareBtn').innerHTML = '<i class="fas fa-stop"></i> Остановить показ';
+        document.getElementById('screenShareBtn').innerHTML = ' Остановить показ';
         document.getElementById('screenShareBtn').classList.remove('btn-primary');
         document.getElementById('screenShareBtn').classList.add('btn-danger');
         document.getElementById('syncIndicatorText').textContent = 'Вы демонстрируете экран';
@@ -691,7 +690,7 @@
         }
         videoPlayer.srcObject = null;
         if (currentRoom.videoUrl) loadVideo(currentRoom.videoUrl);
-        document.getElementById('screenShareBtn').innerHTML = '<i class="fas fa-desktop"></i> Показать экран';
+        document.getElementById('screenShareBtn').innerHTML = ' Показать экран';
         document.getElementById('screenShareBtn').classList.remove('btn-danger');
         document.getElementById('screenShareBtn').classList.add('btn-primary');
         document.getElementById('syncNotification').style.display = 'none';
