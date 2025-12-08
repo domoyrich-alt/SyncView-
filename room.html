@@ -78,7 +78,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 60%;
+            max-width: 50%;
         }
         
         .header-actions {
@@ -142,11 +142,14 @@
             background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
             padding: 10px 16px;
             z-index: 10;
-            display: none; /* По умолчанию скрыты */
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
         }
         
         .video-controls-overlay.active {
-            display: block; /* Показываем только для прямого видео */
+            display: block;
+            opacity: 1;
         }
         
         .video-controls {
@@ -245,22 +248,19 @@
             font-weight: 500;
         }
         
-        /* Панель источников видео - скрыта по умолчанию на мобильных */
+        /* Панель источников видео - СДЕЛАЕМ ЕЕ ВИДИМОЙ */
         .video-sources-panel {
             position: absolute;
-            top: 0;
+            top: 56px;
             left: 0;
             right: 0;
             background: rgba(20, 20, 22, 0.98);
             backdrop-filter: blur(20px);
             padding: 16px;
             z-index: 20;
-            transform: translateY(-100%);
-            transition: transform 0.3s;
-        }
-        
-        .video-sources-panel.open {
             transform: translateY(0);
+            display: block;
+            border-bottom: 1px solid var(--border);
         }
         
         .source-tabs {
@@ -349,7 +349,7 @@
             border-bottom-color: var(--primary-color);
         }
         
-        /* Чат - оптимизирован для мобильных */
+        /* УЛУЧШЕННЫЙ ЧАТ */
         .chat-container {
             flex: 1;
             display: flex;
@@ -373,11 +373,18 @@
             border-radius: 12px;
             border-left: 3px solid transparent;
             animation: messageSlide 0.3s ease;
+            display: flex;
+            gap: 12px;
         }
         
         .chat-message.system {
             background: rgba(145, 70, 255, 0.1);
             border-left-color: var(--primary-color);
+            padding: 12px;
+        }
+        
+        .chat-message.current-user {
+            background: rgba(145, 70, 255, 0.15);
         }
         
         @keyframes messageSlide {
@@ -391,10 +398,29 @@
             }
         }
         
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
         .message-header {
             display: flex;
             justify-content: space-between;
             margin-bottom: 6px;
+            align-items: flex-start;
         }
         
         .message-username {
@@ -403,9 +429,16 @@
             color: var(--primary-color);
         }
         
+        .message-system-username {
+            font-weight: 600;
+            font-size: 13px;
+            color: #9146FF;
+        }
+        
         .message-time {
             font-size: 11px;
             color: var(--text-secondary);
+            white-space: nowrap;
         }
         
         .message-text {
@@ -483,12 +516,29 @@
             color: white;
         }
         
-        /* Качество видео - УБИРАЕМ, будет в нативных контролах */
-        .quality-panel {
-            display: none !important;
+        /* Индикатор блокировки */
+        .lock-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+            max-width: 80%;
         }
         
-        /* Кнопка меню на мобильных - УБИРАЕМ дублирование */
+        .lock-indicator.show {
+            display: flex;
+        }
+        
+        /* Кнопка меню на мобильных */
         .mobile-bottom-bar {
             position: fixed;
             bottom: 0;
@@ -603,28 +653,6 @@
             font-size: 13px;
         }
         
-        /* Индикатор блокировки управления */
-        .lock-indicator {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            z-index: 30;
-            display: none;
-            flex-direction: column;
-            gap: 12px;
-            align-items: center;
-            max-width: 80%;
-        }
-        
-        .lock-indicator.show {
-            display: flex;
-        }
-        
         /* Адаптивность */
         @media (max-width: 768px) {
             .room-header {
@@ -633,7 +661,7 @@
             
             .room-title {
                 font-size: 15px;
-                max-width: 50%;
+                max-width: 40%;
             }
             
             .mobile-menu-btn {
@@ -670,12 +698,16 @@
             .sidebar {
                 width: 100%;
             }
+            
+            .video-sources-panel {
+                top: 56px;
+            }
         }
         
         @media (max-width: 480px) {
             .room-title {
                 font-size: 14px;
-                max-width: 40%;
+                max-width: 35%;
             }
             
             .control-btn {
@@ -720,6 +752,12 @@
         :fullscreen .mobile-bottom-bar,
         :-webkit-full-screen .mobile-bottom-bar,
         :-moz-full-screen .mobile-bottom-bar {
+            display: none;
+        }
+        
+        :fullscreen .video-sources-panel,
+        :-webkit-full-screen .video-sources-panel,
+        :-moz-full-screen .video-sources-panel {
             display: none;
         }
         
@@ -772,8 +810,45 @@
                 <button class="control-btn" id="inviteBtn" title="Пригласить">
                     <i class="fas fa-user-plus"></i>
                 </button>
+                <button class="control-btn" id="leaveRoomBtn" title="Выйти из комнаты" style="background: rgba(255, 51, 51, 0.2); border-color: rgba(255, 51, 51, 0.3);">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
             </div>
         </header>
+        
+        <!-- Панель загрузки видео (ВИДИМА ВСЕГДА) -->
+        <div class="video-sources-panel" id="videoSourcesPanel">
+            <div class="source-tabs">
+                <button class="source-tab active" data-source="youtube">
+                    <i class="fab fa-youtube"></i> YouTube
+                </button>
+                <button class="source-tab" data-source="vk">
+                    <i class="fab fa-vk"></i> VK
+                </button>
+                <button class="source-tab" data-source="rutube">
+                    <i class="fas fa-play-circle"></i> RuTube
+                </button>
+                <button class="source-tab" data-source="direct">
+                    <i class="fas fa-link"></i> Прямая ссылка
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <input type="url" class="source-input" id="videoUrlInput" placeholder="Вставьте ссылку на видео...">
+                <button class="control-btn control-btn-large" id="loadVideoBtn" style="border-radius: 8px; min-width: 44px;">
+                    <i class="fas fa-play"></i>
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button class="control-btn" style="flex: 1; border-radius: 8px; background: rgba(0, 204, 102, 0.2); border-color: rgba(0, 204, 102, 0.3);" id="clearVideoBtn">
+                    <i class="fas fa-trash"></i> Очистить
+                </button>
+                <button class="control-btn" style="flex: 1; border-radius: 8px;" id="pasteUrlBtn">
+                    <i class="fas fa-paste"></i> Вставить
+                </button>
+            </div>
+        </div>
         
         <!-- Основная секция с видео -->
         <main class="video-section" id="videoSection">
@@ -828,30 +903,6 @@
             </div>
         </main>
         
-        <!-- Панель источников видео -->
-        <div class="video-sources-panel" id="videoSourcesPanel">
-            <div class="source-tabs">
-                <button class="source-tab active" data-source="youtube">
-                    <i class="fab fa-youtube"></i> YouTube
-                </button>
-                <button class="source-tab" data-source="vk">
-                    <i class="fab fa-vk"></i> VK
-                </button>
-                <button class="source-tab" data-source="rutube">
-                    <i class="fas fa-play-circle"></i> RuTube
-                </button>
-                <button class="source-tab" data-source="direct">
-                    <i class="fas fa-link"></i> Прямая ссылка
-                </button>
-            </div>
-            
-            <input type="url" class="source-input" id="videoUrlInput" placeholder="Вставьте ссылку на видео...">
-            
-            <button class="control-btn control-btn-large" id="loadVideoBtn" style="width: 100%; border-radius: 12px;">
-                <i class="fas fa-play"></i> Загрузить видео
-            </button>
-        </div>
-        
         <!-- Боковая панель -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -873,7 +924,7 @@
                 </button>
             </div>
             
-            <!-- Чат -->
+            <!-- УЛУЧШЕННЫЙ ЧАТ -->
             <div class="chat-container" data-tab-content="chat">
                 <div class="chat-messages" id="chatMessages">
                     <!-- Сообщения загружаются здесь -->
@@ -881,7 +932,7 @@
                 
                 <div class="chat-input-container">
                     <div class="chat-input-wrapper">
-                        <textarea id="chatInput" placeholder="Напишите сообщение..."></textarea>
+                        <textarea id="chatInput" placeholder="Напишите сообщение... (Enter - отправить, Shift+Enter - новая строка)"></textarea>
                         <button class="control-btn" id="sendMessageBtn">
                             <i class="fas fa-paper-plane"></i>
                         </button>
@@ -891,7 +942,7 @@
             
             <!-- Участники -->
             <div class="participants-container" data-tab-content="participants">
-                <h3 style="margin-bottom: 16px;">Участники комнаты</h3>
+                <h3 style="margin-bottom: 16px;">Участники комнаты (<span id="participantsCount">0</span>)</h3>
                 <div class="participants-list" id="participantsList">
                     <!-- Участники загружаются здесь -->
                 </div>
@@ -899,7 +950,7 @@
             
             <!-- Настройки -->
             <div class="participants-container" data-tab-content="settings">
-                <h3 style="margin-bottom: 16px;">Настройки</h3>
+                <h3 style="margin-bottom: 16px;">Настройки комнаты</h3>
                 
                 <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px 0;">
                     <div>
@@ -907,6 +958,9 @@
                             <input type="checkbox" id="enableAudioProcessing" checked>
                             <span>Улучшение звука</span>
                         </label>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-left: 28px;">
+                            Улучшает качество звука в видео
+                        </div>
                     </div>
                     
                     <div>
@@ -914,25 +968,53 @@
                             <input type="checkbox" id="autoFullscreen" checked>
                             <span>Авто-полноэкранный режим</span>
                         </label>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-left: 28px;">
+                            Автоматически переходит в полноэкранный режим на мобильных
+                        </div>
                     </div>
                     
-                    <button class="control-btn" id="screenShareBtn" style="width: 100%; border-radius: 12px; margin-top: 16px;">
-                        <i class="fas fa-desktop"></i> Показать экран
-                    </button>
+                    <div>
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <input type="checkbox" id="syncVideo" checked>
+                            <span>Синхронизация видео</span>
+                        </label>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-left: 28px;">
+                            Автоматическая синхронизация с владельцем комнаты
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 20px;">
+                        <button class="control-btn" id="screenShareBtn" style="width: 100%; border-radius: 12px; margin-bottom: 12px; background: rgba(145, 70, 255, 0.2);">
+                            <i class="fas fa-desktop"></i> Показать экран
+                        </button>
+                        
+                        <button class="control-btn" id="copyRoomIdBtn" style="width: 100%; border-radius: 12px; margin-bottom: 12px;">
+                            <i class="fas fa-copy"></i> Копировать ID комнаты
+                        </button>
+                        
+                        <button class="control-btn" id="leaveRoomBtn2" style="width: 100%; border-radius: 12px; background: rgba(255, 51, 51, 0.2); border-color: rgba(255, 51, 51, 0.3);">
+                            <i class="fas fa-sign-out-alt"></i> Выйти из комнаты
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
         
         <!-- Нижняя панель для мобильных -->
         <nav class="mobile-bottom-bar">
-            <button class="mobile-btn" id="mobileSourcesBtn">
-                <i class="fas fa-plus"></i>
-                <span>Видео</span>
-            </button>
-            
             <button class="mobile-btn" id="mobileChatBtn">
                 <i class="fas fa-comment"></i>
                 <span>Чат</span>
+            </button>
+            
+            <button class="mobile-btn" id="mobileParticipantsBtn">
+                <i class="fas fa-users"></i>
+                <span>Люди</span>
+            </button>
+            
+            <button class="mobile-btn" id="mobileSettingsBtn">
+                <i class="fas fa-cog"></i>
+                <span>Настройки</span>
             </button>
             
             <button class="mobile-btn" id="mobileFullscreenBtn">
@@ -968,22 +1050,68 @@
                         </button>
                     </div>
                     
-                    <div style="display: flex; gap: 12px;">
-                        <button class="control-btn" style="flex: 1; border-radius: 12px;" onclick="shareViaWhatsApp()">
-                            <i class="fab fa-whatsapp"></i>
-                        </button>
-                        <button class="control-btn" style="flex: 1; border-radius: 12px;" onclick="shareViaTelegram()">
-                            <i class="fab fa-telegram"></i>
-                        </button>
-                        <button class="control-btn" style="flex: 1; border-radius: 12px;" onclick="shareViaVK()">
-                            <i class="fab fa-vk"></i>
-                        </button>
+                    <div style="margin-bottom: 16px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 8px; font-size: 14px;">
+                            Или поделитесь через:
+                        </p>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="control-btn" style="flex: 1; border-radius: 12px;" onclick="shareViaWhatsApp()">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
+                            <button class="control-btn" style="flex: 1; border-radius: 12px;" onclick="shareViaTelegram()">
+                                <i class="fab fa-telegram"></i>
+                            </button>
+                            <button class="control-btn" style="flex: 1; border-radius: 12px;" onclick="shareViaVK()">
+                                <i class="fab fa-vk"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(145, 70, 255, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">
+                            ID комнаты:
+                        </p>
+                        <code style="background: rgba(0, 0, 0, 0.3); padding: 4px 8px; border-radius: 4px; font-size: 14px;">
+                            <span id="roomIdDisplay"></span>
+                        </code>
                     </div>
                 </div>
                 
                 <button class="control-btn" onclick="closeInviteModal()" style="width: 100%; border-radius: 12px;">
                     Закрыть
                 </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно подтверждения выхода -->
+    <div class="modal-overlay" id="leaveModal">
+        <div class="modal-content">
+            <div style="padding: 20px;">
+                <h3 style="margin-bottom: 16px; color: var(--danger);">
+                    <i class="fas fa-exclamation-triangle"></i> Выйти из комнаты?
+                </h3>
+                
+                <div style="margin-bottom: 20px;">
+                    <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 14px;">
+                        Вы уверены, что хотите покинуть комнату?
+                    </p>
+                    
+                    <div style="background: rgba(255, 51, 51, 0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <p style="font-size: 13px; color: var(--text-primary);">
+                            <i class="fas fa-info-circle"></i> Если вы владелец комнаты, комната будет удалена для всех участников.
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 12px;">
+                    <button class="control-btn" onclick="closeLeaveModal()" style="flex: 1; border-radius: 12px;">
+                        Отмена
+                    </button>
+                    <button class="control-btn" id="confirmLeaveBtn" style="flex: 1; border-radius: 12px; background: rgba(255, 51, 51, 0.2); border-color: rgba(255, 51, 51, 0.3);">
+                        Выйти
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1023,6 +1151,8 @@
         let isPlaying = false;
         let lastTouchTime = 0;
         let videoPausedByHost = false;
+        let syncInterval = null;
+        let lastSyncTime = 0;
         
         // Инициализация при загрузке
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1041,6 +1171,9 @@
             
             // Адаптация под мобильные
             adaptToMobile();
+            
+            // Обновляем заголовок комнаты
+            document.getElementById('roomTitle').textContent = currentRoom.name;
             
             // Показать уведомление
             showNotification('Добро пожаловать в WatchParty!', 'success');
@@ -1078,9 +1211,6 @@
                     currentRoom = data.room;
                     isHost = currentRoom.hostId === currentUser.id;
                     
-                    // Обновить UI
-                    document.getElementById('roomTitle').textContent = currentRoom.name;
-                    
                     // Загрузить видео если есть
                     if (currentRoom.videoUrl) {
                         setTimeout(() => loadVideo(currentRoom.videoUrl), 500);
@@ -1111,7 +1241,8 @@
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'play',
-                        time: videoPlayer.currentTime
+                        time: videoPlayer.currentTime,
+                        timestamp: Date.now()
                     });
                 }
             });
@@ -1124,12 +1255,27 @@
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'pause',
-                        time: videoPlayer.currentTime
+                        time: videoPlayer.currentTime,
+                        timestamp: Date.now()
                     });
                 }
             });
             
-            videoPlayer.addEventListener('timeupdate', updateProgressBar);
+            videoPlayer.addEventListener('timeupdate', () => {
+                updateProgressBar();
+                
+                // Синхронизация каждые 5 секунд для владельца
+                if (isHost && socket && videoPlayer.currentTime - lastSyncTime > 5) {
+                    socket.emit('video-control', {
+                        roomId: currentRoom.id,
+                        action: 'sync',
+                        time: videoPlayer.currentTime,
+                        timestamp: Date.now()
+                    });
+                    lastSyncTime = videoPlayer.currentTime;
+                }
+            });
+            
             videoPlayer.addEventListener('loadedmetadata', () => {
                 updateProgressBar();
             });
@@ -1142,6 +1288,13 @@
             const progressBar = document.getElementById('progressBar');
             progressBar.addEventListener('click', seekVideo);
             progressBar.addEventListener('touchstart', handleProgressTouch);
+            
+            // Клик по видео для переключения паузы/воспроизведения
+            videoPlayer.addEventListener('click', () => {
+                if (currentVideoType === 'direct') {
+                    togglePlay();
+                }
+            });
         }
         
         // Инициализация обработки звука
@@ -1171,7 +1324,6 @@
                         
                         // Применяем обработку звука
                         for (let i = 0; i < inputData.length; i++) {
-                            // Усиление тихих частей и компрессия
                             let sample = inputData[i];
                             
                             // Нормализация
@@ -1254,11 +1406,13 @@
             });
             
             socket.on('user-joined', (data) => {
-                addSystemMessage(`${data.username} присоединился`);
+                addSystemMessage(`${data.username} присоединился к комнате`);
+                updateParticipantsCount();
             });
             
             socket.on('user-left', (data) => {
                 addSystemMessage(`${data.username} покинул комнату`);
+                updateParticipantsCount();
             });
             
             socket.on('new-message', (message) => {
@@ -1268,6 +1422,13 @@
             socket.on('video-update', (data) => {
                 if (isHost) return;
                 handleVideoUpdate(data);
+            });
+            
+            socket.on('room-closed', (data) => {
+                showNotification('Комната была закрыта владельцем', 'error');
+                setTimeout(() => {
+                    window.location.href = '/dashboard';
+                }, 3000);
             });
             
             socket.on('error', (data) => {
@@ -1299,7 +1460,6 @@
             document.getElementById('mobileFullscreenBtn').addEventListener('click', toggleFullscreen);
             
             // Панель источников
-            document.getElementById('mobileSourcesBtn').addEventListener('click', toggleSourcesPanel);
             document.querySelectorAll('.source-tab').forEach(tab => {
                 tab.addEventListener('click', (e) => {
                     switchVideoSource(e.currentTarget.dataset.source);
@@ -1310,7 +1470,20 @@
                 const url = document.getElementById('videoUrlInput').value;
                 if (url) {
                     loadVideo(url);
-                    toggleSourcesPanel();
+                }
+            });
+            
+            document.getElementById('clearVideoBtn').addEventListener('click', () => {
+                document.getElementById('videoUrlInput').value = '';
+                document.getElementById('videoUrlInput').focus();
+            });
+            
+            document.getElementById('pasteUrlBtn').addEventListener('click', async () => {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    document.getElementById('videoUrlInput').value = text;
+                } catch (err) {
+                    showNotification('Не удалось вставить из буфера', 'error');
                 }
             });
             
@@ -1319,6 +1492,16 @@
             document.getElementById('mobileChatBtn').addEventListener('click', () => {
                 openSidebar();
                 switchSidebarTab('chat');
+            });
+            
+            document.getElementById('mobileParticipantsBtn').addEventListener('click', () => {
+                openSidebar();
+                switchSidebarTab('participants');
+            });
+            
+            document.getElementById('mobileSettingsBtn').addEventListener('click', () => {
+                openSidebar();
+                switchSidebarTab('settings');
             });
             
             document.getElementById('closeSidebarBtn').addEventListener('click', closeSidebar);
@@ -1341,8 +1524,16 @@
             document.getElementById('inviteBtn').addEventListener('click', openInviteModal);
             document.getElementById('copyLinkBtn').addEventListener('click', copyRoomLink);
             
+            // Выход из комнаты
+            document.getElementById('leaveRoomBtn').addEventListener('click', openLeaveModal);
+            document.getElementById('leaveRoomBtn2').addEventListener('click', openLeaveModal);
+            document.getElementById('confirmLeaveBtn').addEventListener('click', leaveRoom);
+            
             // Демонстрация экрана
             document.getElementById('screenShareBtn').addEventListener('click', toggleScreenShare);
+            
+            // Копирование ID комнаты
+            document.getElementById('copyRoomIdBtn').addEventListener('click', copyRoomId);
             
             // Настройки аудио
             document.getElementById('enableAudioProcessing').addEventListener('change', (e) => {
@@ -1359,6 +1550,14 @@
                 }
             });
             
+            // Синхронизация видео
+            document.getElementById('syncVideo').addEventListener('change', (e) => {
+                if (!e.target.checked && syncInterval) {
+                    clearInterval(syncInterval);
+                    syncInterval = null;
+                }
+            });
+            
             // Обработчик для скрытия элементов при касании
             document.addEventListener('touchstart', handleTouchStart, { passive: true });
             document.addEventListener('touchend', handleTouchEnd, { passive: true });
@@ -1366,13 +1565,24 @@
             // Обработчик клавиш
             document.addEventListener('keydown', handleKeyDown);
             
-            // Обработчик клика на видео
+            // Клик по видео для показа/скрытия контролов
             document.getElementById('videoSection').addEventListener('click', (e) => {
-                if (currentVideoType === 'direct' && e.target.closest('.video-container')) {
-                    togglePlay();
+                if (e.target.closest('.video-container')) {
+                    toggleVideoControls();
+                }
+            });
+            
+            // Авто-скрытие контролов
+            document.addEventListener('mousemove', () => {
+                if (currentVideoType === 'direct') {
+                    showVideoControls();
+                    clearTimeout(hideControlsTimeout);
+                    hideControlsTimeout = setTimeout(hideVideoControls, 3000);
                 }
             });
         }
+        
+        let hideControlsTimeout = null;
         
         // Инициализация YouTube API
         function initializeYouTubeAPI() {
@@ -1419,6 +1629,7 @@
             const videoControls = document.getElementById('videoControls');
             if (videoType === 'direct') {
                 videoControls.classList.add('active');
+                videoPlayer.controls = false;
             } else {
                 videoControls.classList.remove('active');
             }
@@ -1446,7 +1657,8 @@
                 socket.emit('video-control', {
                     roomId: currentRoom.id,
                     action: 'load',
-                    url: url
+                    url: url,
+                    timestamp: Date.now()
                 });
             }
             
@@ -1456,6 +1668,9 @@
             }
             
             showNotification('Видео загружается...', 'info');
+            
+            // Очистка поля ввода
+            document.getElementById('videoUrlInput').value = '';
         }
         
         // Извлечение YouTube ID
@@ -1512,7 +1727,7 @@
                     videoId: videoId,
                     playerVars: {
                         'playsinline': 1,
-                        'controls': 1, // ВКЛЮЧАЕМ контролы YouTube
+                        'controls': 1,
                         'modestbranding': 1,
                         'rel': 0,
                         'showinfo': 0,
@@ -1526,7 +1741,6 @@
                     }
                 });
             } else {
-                // Fallback: iframe с контролами
                 playerDiv.innerHTML = `
                     <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=0&controls=1&modestbranding=1&rel=0"
                             frameborder="0" allowfullscreen
@@ -1563,7 +1777,8 @@
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'play',
-                        time: currentTime
+                        time: currentTime,
+                        timestamp: Date.now()
                     });
                 }
             } else if (state === YT.PlayerState.PAUSED) {
@@ -1573,9 +1788,13 @@
                     socket.emit('video-control', {
                         roomId: currentRoom.id,
                         action: 'pause',
-                        time: currentTime
+                        time: currentTime,
+                        timestamp: Date.now()
                     });
                 }
+            } else if (state === YT.PlayerState.ENDED) {
+                isPlaying = false;
+                updatePlayButton(false);
             }
         }
         
@@ -1627,7 +1846,7 @@
         function loadDirectVideo(url) {
             videoPlayer.classList.add('active');
             videoPlayer.src = url;
-            videoPlayer.controls = false; // Отключаем нативные контролы
+            videoPlayer.controls = false;
             
             // Проверка на HLS
             if (url.endsWith('.m3u8')) {
@@ -1659,11 +1878,39 @@
         function showLockIndicator() {
             if (!isHost) {
                 document.getElementById('lockIndicator').classList.add('show');
+                document.getElementById('playPauseBtn').disabled = true;
             }
         }
         
         function hideLockIndicator() {
             document.getElementById('lockIndicator').classList.remove('show');
+            document.getElementById('playPauseBtn').disabled = false;
+        }
+        
+        // Показать/скрыть контролы видео
+        function toggleVideoControls() {
+            if (currentVideoType === 'direct') {
+                const controls = document.getElementById('videoControls');
+                if (controls.style.opacity === '1' || controls.style.opacity === '') {
+                    hideVideoControls();
+                } else {
+                    showVideoControls();
+                }
+            }
+        }
+        
+        function showVideoControls() {
+            if (currentVideoType === 'direct') {
+                const controls = document.getElementById('videoControls');
+                controls.style.opacity = '1';
+            }
+        }
+        
+        function hideVideoControls() {
+            if (isPlaying && currentVideoType === 'direct') {
+                const controls = document.getElementById('videoControls');
+                controls.style.opacity = '0';
+            }
         }
         
         // Воспроизведение/пауза
@@ -1779,9 +2026,15 @@
         }
         
         function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
             const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
+            
+            if (hours > 0) {
+                return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
         }
         
         // Перемотка видео
@@ -1792,13 +2045,15 @@
             const rect = progressBar.getBoundingClientRect();
             const percent = (e.clientX - rect.left) / rect.width;
             
-            videoPlayer.currentTime = percent * videoPlayer.duration;
+            const newTime = percent * videoPlayer.duration;
+            videoPlayer.currentTime = newTime;
             
             if (isHost && socket) {
                 socket.emit('video-control', {
                     roomId: currentRoom.id,
                     action: 'seek',
-                    time: videoPlayer.currentTime
+                    time: newTime,
+                    timestamp: Date.now()
                 });
             }
         }
@@ -1811,21 +2066,17 @@
             const rect = progressBar.getBoundingClientRect();
             const percent = (touch.clientX - rect.left) / rect.width;
             
-            videoPlayer.currentTime = percent * videoPlayer.duration;
+            const newTime = percent * videoPlayer.duration;
+            videoPlayer.currentTime = newTime;
             
             if (isHost && socket) {
                 socket.emit('video-control', {
                     roomId: currentRoom.id,
                     action: 'seek',
-                    time: videoPlayer.currentTime
+                    time: newTime,
+                    timestamp: Date.now()
                 });
             }
-        }
-        
-        // Панель источников
-        function toggleSourcesPanel() {
-            const panel = document.getElementById('videoSourcesPanel');
-            panel.classList.toggle('open');
         }
         
         // Переключение источника видео
@@ -1840,7 +2091,7 @@
             const input = document.getElementById('videoUrlInput');
             switch(source) {
                 case 'youtube':
-                    input.placeholder = 'https://youtube.com/watch?v=...';
+                    input.placeholder = 'https://youtube.com/watch?v=... или https://youtu.be/...';
                     break;
                 case 'vk':
                     input.placeholder = 'https://vk.com/video-123456789_123456789';
@@ -1849,7 +2100,7 @@
                     input.placeholder = 'https://rutube.ru/video/...';
                     break;
                 default:
-                    input.placeholder = 'https://example.com/video.mp4';
+                    input.placeholder = 'https://example.com/video.mp4 или .m3u8';
             }
         }
         
@@ -1879,7 +2130,7 @@
             });
         }
         
-        // ЧАТ
+        // УЛУЧШЕННЫЙ ЧАТ
         function sendMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
@@ -1889,11 +2140,17 @@
             socket.emit('send-message', {
                 roomId: currentRoom.id,
                 userId: currentUser.id,
-                message: message
+                username: currentUser.username,
+                message: message,
+                avatar: currentUser.avatar
             });
             
             input.value = '';
             input.focus();
+            
+            // Прокрутка чата вниз
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         function addMessage(message) {
@@ -1918,22 +2175,71 @@
         
         function createMessageElement(message) {
             const div = document.createElement('div');
-            div.className = `chat-message ${message.isSystem ? 'system' : ''}`;
             
-            const time = new Date(message.timestamp);
-            const timeString = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
-            
-            div.innerHTML = `
-                <div class="message-header">
-                    <span class="message-username ${message.isSystem ? 'system' : ''}">
-                        ${message.username}
-                    </span>
-                    <span class="message-time">${timeString}</span>
-                </div>
-                <div class="message-text">${escapeHtml(message.message)}</div>
-            `;
+            if (message.isSystem) {
+                div.className = 'chat-message system';
+                div.innerHTML = `
+                    <div style="flex: 1;">
+                        <div class="message-header">
+                            <span class="message-system-username">
+                                <i class="fas fa-bell"></i> ${message.username}
+                            </span>
+                            <span class="message-time">${formatMessageTime(message.timestamp)}</span>
+                        </div>
+                        <div class="message-text">${escapeHtml(message.message)}</div>
+                    </div>
+                `;
+            } else {
+                const isCurrentUser = message.userId === currentUser.id;
+                const initials = message.username
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .substring(0, 2);
+                
+                div.className = `chat-message ${isCurrentUser ? 'current-user' : ''}`;
+                div.innerHTML = `
+                    <div class="message-avatar" style="background: ${isCurrentUser ? 'linear-gradient(135deg, #9146FF, #772CE8)' : '#323239'}">
+                        ${initials}
+                    </div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-username">
+                                ${message.username} ${isCurrentUser ? '<span style="color: var(--text-secondary); font-size: 11px;">(Вы)</span>' : ''}
+                            </span>
+                            <span class="message-time">${formatMessageTime(message.timestamp)}</span>
+                        </div>
+                        <div class="message-text">${escapeHtml(message.message)}</div>
+                    </div>
+                `;
+            }
             
             return div;
+        }
+        
+        function formatMessageTime(timestamp) {
+            const time = new Date(timestamp);
+            const now = new Date();
+            const diff = now - time;
+            
+            // Если сообщение отправлено сегодня
+            if (time.toDateString() === now.toDateString()) {
+                return `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            } 
+            // Если вчера
+            else if (diff < 48 * 60 * 60 * 1000) {
+                return `Вчера ${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            }
+            // Если на этой неделе
+            else if (diff < 7 * 24 * 60 * 60 * 1000) {
+                const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                return `${days[time.getDay()]} ${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+            }
+            // Больше недели назад
+            else {
+                return `${time.getDate().toString().padStart(2, '0')}.${(time.getMonth() + 1).toString().padStart(2, '0')}.${time.getFullYear()}`;
+            }
         }
         
         function updateChatHistory(messages) {
@@ -1960,7 +2266,6 @@
                 const div = document.createElement('div');
                 div.className = 'participant-item';
                 
-                // Аватар из первых букв
                 const initials = participant.username
                     .split(' ')
                     .map(n => n[0])
@@ -1969,7 +2274,7 @@
                     .substring(0, 2);
                 
                 div.innerHTML = `
-                    <div class="participant-avatar" style="background: ${isHostUser ? 'linear-gradient(135deg, #9146FF, #772CE8)' : '#323239'}">
+                    <div class="participant-avatar" style="background: ${isHostUser ? 'linear-gradient(135deg, #9146FF, #772CE8)' : (isCurrentUser ? 'linear-gradient(135deg, #00cc66, #00aa55)' : '#323239')}">
                         ${initials}
                     </div>
                     <div style="flex: 1;">
@@ -1979,13 +2284,20 @@
                             ${isHostUser ? ' 👑' : ''}
                         </div>
                         <div style="font-size: 12px; color: var(--text-secondary);">
-                            В сети
+                            Онлайн
                         </div>
                     </div>
                 `;
                 
                 participantsList.appendChild(div);
             });
+            
+            updateParticipantsCount();
+        }
+        
+        function updateParticipantsCount() {
+            const participants = document.querySelectorAll('.participant-item');
+            document.getElementById('participantsCount').textContent = participants.length;
         }
         
         // Демонстрация экрана
@@ -2046,10 +2358,27 @@
                     hideLockIndicator();
                     
                     if (currentVideoType === 'direct') {
-                        videoPlayer.currentTime = data.time;
-                        videoPlayer.play();
+                        // Плавная синхронизация времени
+                        const currentTime = videoPlayer.currentTime;
+                        const targetTime = data.time;
+                        const timeDiff = Math.abs(currentTime - targetTime);
+                        
+                        if (timeDiff > 2) {
+                            videoPlayer.currentTime = targetTime;
+                        }
+                        
+                        if (videoPlayer.paused) {
+                            videoPlayer.play();
+                        }
                     } else if (currentVideoType === 'youtube' && youtubePlayer) {
-                        youtubePlayer.seekTo(data.time);
+                        const currentTime = youtubePlayer.getCurrentTime();
+                        const targetTime = data.time;
+                        const timeDiff = Math.abs(currentTime - targetTime);
+                        
+                        if (timeDiff > 2) {
+                            youtubePlayer.seekTo(targetTime, true);
+                        }
+                        
                         youtubePlayer.playVideo();
                     }
                     updatePlayButton(true);
@@ -2063,7 +2392,7 @@
                         videoPlayer.currentTime = data.time;
                         videoPlayer.pause();
                     } else if (currentVideoType === 'youtube' && youtubePlayer) {
-                        youtubePlayer.seekTo(data.time);
+                        youtubePlayer.seekTo(data.time, true);
                         youtubePlayer.pauseVideo();
                     }
                     updatePlayButton(false);
@@ -2073,7 +2402,27 @@
                     if (currentVideoType === 'direct') {
                         videoPlayer.currentTime = data.time;
                     } else if (currentVideoType === 'youtube' && youtubePlayer) {
-                        youtubePlayer.seekTo(data.time);
+                        youtubePlayer.seekTo(data.time, true);
+                    }
+                    break;
+                    
+                case 'sync':
+                    if (currentVideoType === 'direct') {
+                        const currentTime = videoPlayer.currentTime;
+                        const targetTime = data.time;
+                        const timeDiff = Math.abs(currentTime - targetTime);
+                        
+                        if (timeDiff > 2) {
+                            videoPlayer.currentTime = targetTime;
+                        }
+                    } else if (currentVideoType === 'youtube' && youtubePlayer) {
+                        const currentTime = youtubePlayer.getCurrentTime();
+                        const targetTime = data.time;
+                        const timeDiff = Math.abs(currentTime - targetTime);
+                        
+                        if (timeDiff > 2) {
+                            youtubePlayer.seekTo(targetTime, true);
+                        }
                     }
                     break;
                     
@@ -2087,6 +2436,7 @@
         function openInviteModal() {
             document.getElementById('inviteModal').classList.add('open');
             document.getElementById('roomLinkInput').value = `${window.location.origin}/room/${currentRoom.id}`;
+            document.getElementById('roomIdDisplay').textContent = currentRoom.id;
         }
         
         function closeInviteModal() {
@@ -2100,25 +2450,60 @@
             try {
                 await navigator.clipboard.writeText(input.value);
                 showNotification('Ссылка скопирована!', 'success');
-                closeInviteModal();
             } catch (err) {
                 showNotification('Ошибка копирования', 'error');
             }
         }
         
+        async function copyRoomId() {
+            try {
+                await navigator.clipboard.writeText(currentRoom.id);
+                showNotification('ID комнаты скопирован!', 'success');
+            } catch (err) {
+                showNotification('Ошибка копирования', 'error');
+            }
+        }
+        
+        // ВЫХОД ИЗ КОМНАТЫ
+        function openLeaveModal() {
+            document.getElementById('leaveModal').classList.add('open');
+        }
+        
+        function closeLeaveModal() {
+            document.getElementById('leaveModal').classList.remove('open');
+        }
+        
+        function leaveRoom() {
+            if (socket) {
+                socket.emit('leave-room', {
+                    roomId: currentRoom.id,
+                    userId: currentUser.id,
+                    isHost: isHost
+                });
+                
+                if (isHost) {
+                    socket.emit('close-room', {
+                        roomId: currentRoom.id
+                    });
+                }
+            }
+            
+            window.location.href = '/dashboard';
+        }
+        
         // Обмен через соцсети
         function shareViaWhatsApp() {
-            const text = `Присоединяйся к просмотру: ${window.location.href}`;
+            const text = `Присоединяйся к просмотру в WatchParty: ${window.location.href}`;
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         }
         
         function shareViaTelegram() {
-            const text = `Присоединяйся к просмотру: ${window.location.href}`;
+            const text = `Присоединяйся к просмотру в WatchParty: ${window.location.href}`;
             window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(text)}`, '_blank');
         }
         
         function shareViaVK() {
-            const text = `Присоединяйся к просмотру: ${window.location.href}`;
+            const text = `Присоединяйся к просмотру в WatchParty: ${window.location.href}`;
             window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent('WatchParty')}&comment=${encodeURIComponent(text)}`, '_blank');
         }
         
@@ -2155,39 +2540,34 @@
             }, 3000);
         }
         
-        function showVideoControls() {
-            if (currentVideoType === 'direct') {
-                const controls = document.getElementById('videoControls');
-                controls.style.opacity = '1';
-            }
-        }
-        
-        function hideVideoControls() {
-            if (isPlaying && !isMobile() && currentVideoType === 'direct') {
-                const controls = document.getElementById('videoControls');
-                controls.style.opacity = '0';
-            }
-        }
-        
         // ОБРАБОТКА КЛАВИШ
         function handleKeyDown(e) {
             switch(e.key) {
                 case ' ':
                 case 'k':
-                    e.preventDefault();
-                    togglePlay();
+                    if (e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
+                        e.preventDefault();
+                        togglePlay();
+                    }
                     break;
                 case 'f':
-                    toggleFullscreen();
+                    if (e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
+                        e.preventDefault();
+                        toggleFullscreen();
+                    }
                     break;
                 case 'm':
                     if (videoPlayer) videoPlayer.muted = !videoPlayer.muted;
                     break;
                 case 'ArrowLeft':
-                    if (videoPlayer) videoPlayer.currentTime -= 10;
+                    if (videoPlayer) {
+                        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10);
+                    }
                     break;
                 case 'ArrowRight':
-                    if (videoPlayer) videoPlayer.currentTime += 10;
+                    if (videoPlayer) {
+                        videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 10);
+                    }
                     break;
             }
         }
@@ -2197,15 +2577,17 @@
             if (isMobile()) {
                 // На мобильных всегда показываем контролы для прямого видео
                 if (currentVideoType === 'direct') {
-                    document.getElementById('videoControls').style.opacity = '1';
+                    showVideoControls();
                 }
                 
                 // Авто-полноэкранный режим при повороте
-                screen.orientation.addEventListener('change', () => {
-                    if (screen.orientation.type.includes('landscape')) {
-                        enterFullscreen();
-                    }
-                });
+                if (screen.orientation) {
+                    screen.orientation.addEventListener('change', () => {
+                        if (screen.orientation.type.includes('landscape')) {
+                            enterFullscreen();
+                        }
+                    });
+                }
             }
         }
         
@@ -2220,12 +2602,13 @@
             return div.innerHTML;
         }
         
-        // Выход из комнаты
+        // Выход из комнаты при закрытии вкладки
         window.addEventListener('beforeunload', () => {
             if (socket) {
                 socket.emit('leave-room', {
                     roomId: currentRoom.id,
-                    userId: currentUser.id
+                    userId: currentUser.id,
+                    isHost: isHost
                 });
             }
         });
@@ -2240,6 +2623,9 @@
         window.shareViaTelegram = shareViaTelegram;
         window.shareViaVK = shareViaVK;
         window.toggleScreenShare = toggleScreenShare;
+        window.openLeaveModal = openLeaveModal;
+        window.closeLeaveModal = closeLeaveModal;
+        window.leaveRoom = leaveRoom;
         
         console.log('🌟 WatchParty готов к работе!');
     </script>
