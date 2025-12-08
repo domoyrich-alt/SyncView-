@@ -11,11 +11,32 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+const io = socketIo(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
+
+// Отключаем кэширование для всех маршрутов
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
+// Настройка сессий
+app.use(session({
+  secret: 'watchparty-secret-key-2023',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+}));
+
+// Middleware для отладки сессий (из вашего диалога)
+app.use((req, res, next) => {
+  console.log('=== Сессия ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('User ID в сессии:', req.session.userId);
+  console.log('URL:', req.url);
+  console.log('=== Конец сессии ===');
+  next();
 });
 
 // Middleware
@@ -23,70 +44,62 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(__dirname));
-
-// Настройка сессий для Render
-const isProduction = process.env.NODE_ENV === 'production';
-app.use(session({
-  secret: 'watchparty-secret-key-2023-' + (isProduction ? 'prod' : 'dev'),
-  resave: true,
-  saveUninitialized: true,
-  cookie: { 
-    secure: false, // На Render может не работать с true
-    maxAge: 24 * 60 * 60 * 1000,
-    httpOnly: true
-  }
-}));
-
-// Пути для загрузок
-const isRender = process.env.RENDER === 'true';
-const uploadsDir = isRender ? '/tmp/uploads' : path.join(__dirname, 'uploads');
-const avatarsDir = path.join(uploadsDir, 'avatars');
-
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
-
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static('uploads'));
 
 // Хранилище для аватарок
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, avatarsDir);
+    const dir = 'uploads/avatars';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
+    const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
     cb(null, uniqueName);
   }
 });
-
-const upload = multer({ 
+const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Только изображения!'));
+  }
 });
 
 // "База данных" в памяти
 const users = new Map();
 const rooms = new Map();
+const onlineUsers = new Map();
+const screenSharers = new Map(); // Текущие демонстраторы экрана
 
-// Инициализация данных
+// Функция инициализации данных
 function initData() {
+  // Создаем тестового пользователя
   const testUserId = uuidv4();
   users.set(testUserId, {
     id: testUserId,
     username: 'Демо Пользователь',
     email: 'demo@watchparty.com',
     password: bcrypt.hashSync('demo123', 10),
-    avatar: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+    avatar: '/assets/default-avatar.png',
     createdAt: new Date().toISOString(),
     rooms: []
   });
 
+  // Создаем демо комнату
   const demoRoomId = uuidv4().substring(0, 8);
   rooms.set(demoRoomId, {
     id: demoRoomId,
     name: 'Демо комната',
     host: 'Демо Пользователь',
     hostId: testUserId,
-    videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', // Изменено на MP4 для теста
     isPrivate: false,
     password: null,
     createdAt: new Date().toISOString(),
@@ -94,10 +107,12 @@ function initData() {
     messages: [],
     isPlaying: false,
     currentTime: 0,
-    lastUpdate: Date.now()
+    lastUpdate: Date.now(),
+    screenSharer: null
   });
 }
 
+// Инициализация данных
 initData();
 
 // Middleware для проверки аутентификации
@@ -137,57 +152,35 @@ app.get('/room/:id', requireAuth, (req, res) => {
 app.post('/api/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    
+    // Валидация
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Все поля обязательны' });
     }
-    
     if (password.length < 6) {
       return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
     }
-    
+    // Проверка существующего пользователя
     const existingUser = Array.from(users.values()).find(u => u.email === email);
     if (existingUser) {
       return res.status(400).json({ error: 'Email уже зарегистрирован' });
     }
-    
+    // Создание пользователя
     const userId = uuidv4();
     const hashedPassword = await bcrypt.hash(password, 10);
-    
     const user = {
       id: userId,
       username,
       email,
       password: hashedPassword,
-      avatar: 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png',
+      avatar: '/assets/default-avatar.png',
       createdAt: new Date().toISOString(),
       rooms: [],
       lastSeen: new Date().toISOString()
     };
-    
     users.set(userId, user);
-    
-    // Сохраняем сессию
     req.session.userId = userId;
     req.session.username = username;
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.status(500).json({ error: 'Ошибка сохранения сессии' });
-      }
-      
-      console.log('User registered:', userId);
-      res.json({ 
-        success: true, 
-        user: {
-          id: userId,
-          username,
-          email,
-          avatar: user.avatar
-        }
-      });
-    });
-    
+    res.json({ success: true, user: { id: userId, username, email, avatar: user.avatar } });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -197,41 +190,23 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+    // Поиск пользователя
     const user = Array.from(users.values()).find(u => u.email === email);
     if (!user) {
       return res.status(401).json({ error: 'Неверный email или пароль' });
     }
-    
+    // Проверка пароля
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(401).json({ error: 'Неверный email или пароль' });
     }
-    
+    // Обновление lastSeen
     user.lastSeen = new Date().toISOString();
     users.set(user.id, user);
-    
-    // Сохраняем сессию
+    // Создание сессии
     req.session.userId = user.id;
     req.session.username = user.username;
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.status(500).json({ error: 'Ошибка сохранения сессии' });
-      }
-      
-      console.log('User logged in:', user.id);
-      res.json({ 
-        success: true, 
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar
-        }
-      });
-    });
-    
+    res.json({ success: true, user: { id: user.id, username: user.username, email: user.email, avatar: user.avatar } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -239,25 +214,15 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error('Logout error:', err);
-      return res.status(500).json({ error: 'Ошибка сервера' });
-    }
-    res.json({ success: true });
-  });
+  req.session.destroy();
+  res.json({ success: true });
 });
 
-app.get('/api/user', (req, res) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: 'Требуется авторизация' });
-  }
-  
+app.get('/api/user', requireAuth, (req, res) => {
   const user = users.get(req.session.userId);
   if (!user) {
     return res.status(404).json({ error: 'Пользователь не найден' });
   }
-  
   const { password, ...userData } = user;
   res.json({ success: true, user: userData });
 });
@@ -266,22 +231,23 @@ app.post('/api/update-profile', requireAuth, upload.single('avatar'), async (req
   try {
     const userId = req.session.userId;
     const user = users.get(userId);
-    
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
-    
+    // Обновление имени пользователя
     if (req.body.username) {
       user.username = req.body.username;
       req.session.username = req.body.username;
     }
-    
+    // Обновление аватара
     if (req.file) {
-      user.avatar = `/uploads/avatars/${req.file.filename}`;
+      // Удаляем старый аватар, если это не дефолтный
+      if (user.avatar !== '/assets/default-avatar.png' && fs.existsSync(path.join(__dirname, user.avatar))) {
+        fs.unlinkSync(path.join(__dirname, user.avatar));
+      }
+      user.avatar = '/uploads/avatars/' + req.file.filename;
     }
-    
     users.set(userId, user);
-    
     const { password, ...userData } = user;
     res.json({ success: true, user: userData });
   } catch (error) {
@@ -294,12 +260,10 @@ app.post('/api/create-room', requireAuth, (req, res) => {
   try {
     const userId = req.session.userId;
     const { roomName, videoUrl, isPrivate, password } = req.body;
-    
     const user = users.get(userId);
     if (!user) {
       return res.status(404).json({ error: 'Пользователь не найден' });
     }
-    
     const roomId = uuidv4().substring(0, 8);
     const room = {
       id: roomId,
@@ -314,26 +278,13 @@ app.post('/api/create-room', requireAuth, (req, res) => {
       messages: [],
       isPlaying: false,
       currentTime: 0,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
+      screenSharer: null
     };
-    
     rooms.set(roomId, room);
-    if (!user.rooms) user.rooms = [];
     user.rooms.push(roomId);
     users.set(userId, user);
-    
-    res.json({ 
-      success: true, 
-      room: {
-        id: roomId,
-        name: room.name,
-        host: room.host,
-        videoUrl: room.videoUrl,
-        isPrivate: room.isPrivate,
-        createdAt: room.createdAt,
-        participantCount: 0
-      }
-    });
+    res.json({ success: true, room: { id: roomId, name: room.name, host: room.host, videoUrl: room.videoUrl, isPrivate: room.isPrivate, createdAt: room.createdAt, participantCount: 0 } });
   } catch (error) {
     console.error('Create room error:', error);
     res.status(500).json({ error: 'Ошибка при создании комнаты' });
@@ -343,9 +294,8 @@ app.post('/api/create-room', requireAuth, (req, res) => {
 app.get('/api/rooms', requireAuth, (req, res) => {
   try {
     const userRooms = [];
-    const userId = req.session.userId;
-    
-    const user = users.get(userId);
+    // Получаем комнаты пользователя
+    const user = users.get(req.session.userId);
     if (user && user.rooms) {
       user.rooms.forEach(roomId => {
         const room = rooms.get(roomId);
@@ -357,12 +307,13 @@ app.get('/api/rooms', requireAuth, (req, res) => {
             videoUrl: room.videoUrl,
             isPrivate: room.isPrivate,
             createdAt: room.createdAt,
-            participantCount: room.participants.length
+            participantCount: room.participants.length,
+            screenSharer: room.screenSharer
           });
         }
       });
     }
-    
+    // Добавляем публичные комнаты
     rooms.forEach(room => {
       if (!room.isPrivate && !userRooms.some(r => r.id === room.id)) {
         userRooms.push({
@@ -372,11 +323,11 @@ app.get('/api/rooms', requireAuth, (req, res) => {
           videoUrl: room.videoUrl,
           isPrivate: room.isPrivate,
           createdAt: room.createdAt,
-          participantCount: room.participants.length
+          participantCount: room.participants.length,
+          screenSharer: room.screenSharer
         });
       }
     });
-    
     res.json({ success: true, rooms: userRooms });
   } catch (error) {
     console.error('Get rooms error:', error);
@@ -388,18 +339,16 @@ app.get('/api/room/:id', requireAuth, (req, res) => {
   try {
     const roomId = req.params.id;
     const room = rooms.get(roomId);
-    
     if (!room) {
       return res.status(404).json({ error: 'Комната не найдена' });
     }
-    
+    // Проверка пароля для приватных комнат
     if (room.isPrivate && room.hostId !== req.session.userId) {
       const providedPassword = req.query.password;
       if (!providedPassword || providedPassword !== room.password) {
         return res.status(403).json({ error: 'Неверный пароль или доступ запрещен' });
       }
     }
-    
     res.json({ success: true, room });
   } catch (error) {
     console.error('Get room error:', error);
@@ -408,23 +357,16 @@ app.get('/api/room/:id', requireAuth, (req, res) => {
 });
 
 // WebSocket соединения
-// WebSocket соединения
 io.on('connection', (socket) => {
   console.log('Новое подключение:', socket.id);
-  
-  // Храним информацию о подключенных пользователях
-  const userRooms = new Map(); // socket.id -> roomId
-  const userInfo = new Map(); // socket.id -> {userId, username, avatar}
 
   socket.on('join-room', (data) => {
     const { roomId, userId, username, avatar } = data;
-    
     const room = rooms.get(roomId);
     if (!room) {
       socket.emit('error', { message: 'Комната не найдена' });
       return;
     }
-    
     // Проверяем, не присоединен ли уже пользователь
     const existingParticipant = room.participants.find(p => p.id === userId);
     if (!existingParticipant) {
@@ -436,20 +378,15 @@ io.on('connection', (socket) => {
         joinedAt: new Date().toISOString(),
         isSharingScreen: false
       });
-    } else {
-      // Обновляем socketId для существующего участника
-      existingParticipant.socketId = socket.id;
+      rooms.set(roomId, room);
     }
-    
-    rooms.set(roomId, room);
-    
-    // Сохраняем информацию о пользователе
-    userRooms.set(socket.id, roomId);
-    userInfo.set(socket.id, { userId, username, avatar });
-    
+    // Присоединяем сокет к комнате
     socket.join(roomId);
-    
-    // Отправляем состояние комнаты новому участнику
+    // Обновляем onlineUsers
+    onlineUsers.set(socket.id, { userId, username, roomId });
+    // Отправляем информацию о присоединении всем, кроме присоединившегося
+    socket.to(roomId).emit('user-joined', { userId, username, avatar, timestamp: new Date().toISOString() });
+    // Отправляем текущее состояние комнаты новому участнику
     socket.emit('room-state', {
       participants: room.participants,
       messages: room.messages.slice(-100),
@@ -459,59 +396,39 @@ io.on('connection', (socket) => {
         currentTime: room.currentTime,
         lastUpdate: room.lastUpdate
       },
-      screenSharer: room.screenSharer  // Добавляем информацию о демонстраторе экрана
+      screenSharer: room.screenSharer
     });
-    
-    // Уведомляем других участников о присоединении
-    socket.to(roomId).emit('user-joined', {
-      userId,
-      username,
-      avatar,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Обновляем список участников для всех
+    // Рассылаем обновленный список участников
     io.to(roomId).emit('participants-updated', room.participants);
-    
-    console.log(`👤 ${username} присоединился к комнате ${roomId}`);
+    console.log(`Пользователь ${username} присоединился к комнате ${roomId}`);
   });
-  
+
   socket.on('send-message', (data) => {
     const { roomId, userId, message } = data;
     const room = rooms.get(roomId);
-    
     if (!room) return;
-    
     const user = room.participants.find(p => p.id === userId);
     if (!user) return;
-    
     const messageData = {
       id: uuidv4(),
       userId,
       username: user.username,
       avatar: user.avatar,
-      message: message.trim(),
+      message,
       timestamp: new Date().toISOString()
     };
-    
     room.messages.push(messageData);
-    if (room.messages.length > 1000) {
-      room.messages = room.messages.slice(-500);
-    }
     rooms.set(roomId, room);
-    
+    // Отправляем сообщение всем в комнате
     io.to(roomId).emit('new-message', messageData);
   });
-  
+
   socket.on('video-control', (data) => {
     const { roomId, action, time, url } = data;
     const room = rooms.get(roomId);
-    
     if (!room) return;
-    
     const now = Date.now();
-    
-    switch(action) {
+    switch (action) {
       case 'play':
         room.isPlaying = true;
         room.currentTime = time || 0;
@@ -533,168 +450,109 @@ io.on('connection', (socket) => {
         room.lastUpdate = now;
         break;
     }
-    
     rooms.set(roomId, room);
-    
-    socket.to(roomId).emit('video-update', {
-      ...data,
-      serverTime: now
-    });
+    // Отправляем обновление всем, кроме отправителя
+    socket.to(roomId).emit('video-update', { ...data, serverTime: now });
   });
-  
+
   socket.on('sound-effect', (data) => {
     const { roomId, sound } = data;
     socket.to(roomId).emit('play-sound', sound);
   });
 
-  // Демонстрация экрана
+  // Обработчики для синхронизации экрана
   socket.on('screen-share-start', (data) => {
     const { roomId, userId, username, quality, delay } = data;
     const room = rooms.get(roomId);
-    
     if (!room) return;
-    
     // Устанавливаем текущего демонстратора экрана
-    room.screenSharer = {
-      userId,
-      username,
-      quality,
-      delay,
-      startedAt: new Date().toISOString()
-    };
-    
+    room.screenSharer = { userId, username, quality, delay, startedAt: new Date().toISOString() };
     // Обновляем статус участника
     const participant = room.participants.find(p => p.id === userId);
     if (participant) {
       participant.isSharingScreen = true;
     }
-    
     rooms.set(roomId, room);
-    
+    screenSharers.set(userId, { roomId, socketId: socket.id });
     // Рассылаем всем участникам комнаты
-    io.to(roomId).emit('screen-share-start', {
-      userId,
-      username,
-      quality,
-      delay,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Обновляем список участников
+    io.to(roomId).emit('screen-share-start', { userId, username, quality, delay, timestamp: new Date().toISOString() });
+    // Рассылаем обновленный список участников
     io.to(roomId).emit('participants-updated', room.participants);
-    
-    console.log(`🖥️ ${username} начал показ экрана в комнате ${roomId}`);
+    console.log(`Пользователь ${username} начал показ экрана в комнате ${roomId}`);
+  });
+
+  socket.on('screen-frame', (data) => {
+    const { roomId, userId, frame, timestamp, width, height } = data;
+    // Пересылаем кадр всем, кроме отправителя
+    socket.to(roomId).emit('screen-frame', { userId, frame, timestamp, width, height });
   });
 
   socket.on('screen-share-stop', (data) => {
     const { roomId, userId } = data;
     const room = rooms.get(roomId);
-    
     if (!room) return;
-    
     // Сбрасываем демонстратора экрана
     if (room.screenSharer && room.screenSharer.userId === userId) {
       room.screenSharer = null;
     }
-    
     // Обновляем статус участника
     const participant = room.participants.find(p => p.id === userId);
     if (participant) {
       participant.isSharingScreen = false;
     }
-    
     rooms.set(roomId, room);
-    
+    screenSharers.delete(userId);
     // Рассылаем всем участникам комнаты
-    io.to(roomId).emit('screen-share-stop', {
-      userId,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Обновляем список участников
+    io.to(roomId).emit('screen-share-stop', { userId, timestamp: new Date().toISOString() });
+    // Рассылаем обновленный список участников
     io.to(roomId).emit('participants-updated', room.participants);
-    
-    console.log(`🖥️ ${userId} остановил показ экрана в комнате ${roomId}`);
+    console.log(`Пользователь ${userId} остановил показ экрана в комнате ${roomId}`);
   });
 
-  // Выход из комнаты
   socket.on('leave-room', (data) => {
     const { roomId, userId } = data;
     const room = rooms.get(roomId);
-    
     if (room) {
       // Если пользователь демонстрировал экран, останавливаем демонстрацию
       if (room.screenSharer && room.screenSharer.userId === userId) {
         room.screenSharer = null;
-        io.to(roomId).emit('screen-share-stop', {
-          userId,
-          timestamp: new Date().toISOString()
-        });
+        io.to(roomId).emit('screen-share-stop', { userId, timestamp: new Date().toISOString() });
       }
-      
-      // Удаляем участника
       room.participants = room.participants.filter(p => p.id !== userId);
       rooms.set(roomId, room);
-      
-      // Уведомляем других участников
-      socket.to(roomId).emit('user-left', {
-        userId,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Обновляем список участников
+      socket.to(roomId).emit('user-left', { userId, timestamp: new Date().toISOString() });
       io.to(roomId).emit('participants-updated', room.participants);
     }
-    
-    // Очищаем информацию о пользователе
-    userRooms.delete(socket.id);
-    userInfo.delete(socket.id);
+    screenSharers.delete(userId);
+    onlineUsers.delete(socket.id);
     socket.leave(roomId);
-    
-    console.log(`👋 ${userId} покинул комнату ${roomId}`);
   });
-  
+
   socket.on('disconnect', () => {
-    const roomId = userRooms.get(socket.id);
-    const userData = userInfo.get(socket.id);
-    
-    if (roomId && userData) {
-      const { userId } = userData;
+    const userData = onlineUsers.get(socket.id);
+    if (userData) {
+      const { userId, roomId } = userData;
       const room = rooms.get(roomId);
-      
       if (room) {
         // Если пользователь демонстрировал экран, останавливаем демонстрацию
         if (room.screenSharer && room.screenSharer.userId === userId) {
           room.screenSharer = null;
-          io.to(roomId).emit('screen-share-stop', {
-            userId,
-            timestamp: new Date().toISOString()
-          });
+          io.to(roomId).emit('screen-share-stop', { userId, timestamp: new Date().toISOString() });
         }
-        
-        // Удаляем участника
         room.participants = room.participants.filter(p => p.socketId !== socket.id);
         rooms.set(roomId, room);
-        
-        // Обновляем список участников и уведомляем о выходе
         io.to(roomId).emit('participants-updated', room.participants);
-        io.to(roomId).emit('user-left', {
-          userId,
-          timestamp: new Date().toISOString()
-        });
+        io.to(roomId).emit('user-left', { userId, timestamp: new Date().toISOString() });
       }
-      
-      userRooms.delete(socket.id);
-      userInfo.delete(socket.id);
+      screenSharers.delete(userId);
+      onlineUsers.delete(socket.id);
     }
-    
     console.log('Отключение:', socket.id);
   });
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`✅ Сервер запущен на порту ${PORT}`);
-  console.log(`🌐 Сайт: https://syncview-5.onrender.com`);
-  console.log(`👤 Демо: demo@watchparty.com / demo123`);
+  console.log(`🌐 http://localhost:${PORT}`);
 });
