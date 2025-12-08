@@ -408,9 +408,14 @@ app.get('/api/room/:id', requireAuth, (req, res) => {
 });
 
 // WebSocket соединения
+// WebSocket соединения
 io.on('connection', (socket) => {
   console.log('Новое подключение:', socket.id);
   
+  // Храним информацию о подключенных пользователях
+  const userRooms = new Map(); // socket.id -> roomId
+  const userInfo = new Map(); // socket.id -> {userId, username, avatar}
+
   socket.on('join-room', (data) => {
     const { roomId, userId, username, avatar } = data;
     
@@ -420,6 +425,7 @@ io.on('connection', (socket) => {
       return;
     }
     
+    // Проверяем, не присоединен ли уже пользователь
     const existingParticipant = room.participants.find(p => p.id === userId);
     if (!existingParticipant) {
       room.participants.push({
@@ -427,13 +433,23 @@ io.on('connection', (socket) => {
         username,
         avatar,
         socketId: socket.id,
-        joinedAt: new Date().toISOString()
+        joinedAt: new Date().toISOString(),
+        isSharingScreen: false
       });
-      rooms.set(roomId, room);
+    } else {
+      // Обновляем socketId для существующего участника
+      existingParticipant.socketId = socket.id;
     }
+    
+    rooms.set(roomId, room);
+    
+    // Сохраняем информацию о пользователе
+    userRooms.set(socket.id, roomId);
+    userInfo.set(socket.id, { userId, username, avatar });
     
     socket.join(roomId);
     
+    // Отправляем состояние комнаты новому участнику
     socket.emit('room-state', {
       participants: room.participants,
       messages: room.messages.slice(-100),
@@ -442,9 +458,11 @@ io.on('connection', (socket) => {
         isPlaying: room.isPlaying,
         currentTime: room.currentTime,
         lastUpdate: room.lastUpdate
-      }
+      },
+      screenSharer: room.screenSharer  // Добавляем информацию о демонстраторе экрана
     });
     
+    // Уведомляем других участников о присоединении
     socket.to(roomId).emit('user-joined', {
       userId,
       username,
@@ -452,7 +470,10 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
     
+    // Обновляем список участников для всех
     io.to(roomId).emit('participants-updated', room.participants);
+    
+    console.log(`👤 ${username} присоединился к комнате ${roomId}`);
   });
   
   socket.on('send-message', (data) => {
@@ -525,8 +546,148 @@ io.on('connection', (socket) => {
     const { roomId, sound } = data;
     socket.to(roomId).emit('play-sound', sound);
   });
+
+  // Демонстрация экрана
+  socket.on('screen-share-start', (data) => {
+    const { roomId, userId, username, quality, delay } = data;
+    const room = rooms.get(roomId);
+    
+    if (!room) return;
+    
+    // Устанавливаем текущего демонстратора экрана
+    room.screenSharer = {
+      userId,
+      username,
+      quality,
+      delay,
+      startedAt: new Date().toISOString()
+    };
+    
+    // Обновляем статус участника
+    const participant = room.participants.find(p => p.id === userId);
+    if (participant) {
+      participant.isSharingScreen = true;
+    }
+    
+    rooms.set(roomId, room);
+    
+    // Рассылаем всем участникам комнаты
+    io.to(roomId).emit('screen-share-start', {
+      userId,
+      username,
+      quality,
+      delay,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Обновляем список участников
+    io.to(roomId).emit('participants-updated', room.participants);
+    
+    console.log(`🖥️ ${username} начал показ экрана в комнате ${roomId}`);
+  });
+
+  socket.on('screen-share-stop', (data) => {
+    const { roomId, userId } = data;
+    const room = rooms.get(roomId);
+    
+    if (!room) return;
+    
+    // Сбрасываем демонстратора экрана
+    if (room.screenSharer && room.screenSharer.userId === userId) {
+      room.screenSharer = null;
+    }
+    
+    // Обновляем статус участника
+    const participant = room.participants.find(p => p.id === userId);
+    if (participant) {
+      participant.isSharingScreen = false;
+    }
+    
+    rooms.set(roomId, room);
+    
+    // Рассылаем всем участникам комнаты
+    io.to(roomId).emit('screen-share-stop', {
+      userId,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Обновляем список участников
+    io.to(roomId).emit('participants-updated', room.participants);
+    
+    console.log(`🖥️ ${userId} остановил показ экрана в комнате ${roomId}`);
+  });
+
+  // Выход из комнаты
+  socket.on('leave-room', (data) => {
+    const { roomId, userId } = data;
+    const room = rooms.get(roomId);
+    
+    if (room) {
+      // Если пользователь демонстрировал экран, останавливаем демонстрацию
+      if (room.screenSharer && room.screenSharer.userId === userId) {
+        room.screenSharer = null;
+        io.to(roomId).emit('screen-share-stop', {
+          userId,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Удаляем участника
+      room.participants = room.participants.filter(p => p.id !== userId);
+      rooms.set(roomId, room);
+      
+      // Уведомляем других участников
+      socket.to(roomId).emit('user-left', {
+        userId,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Обновляем список участников
+      io.to(roomId).emit('participants-updated', room.participants);
+    }
+    
+    // Очищаем информацию о пользователе
+    userRooms.delete(socket.id);
+    userInfo.delete(socket.id);
+    socket.leave(roomId);
+    
+    console.log(`👋 ${userId} покинул комнату ${roomId}`);
+  });
   
   socket.on('disconnect', () => {
+    const roomId = userRooms.get(socket.id);
+    const userData = userInfo.get(socket.id);
+    
+    if (roomId && userData) {
+      const { userId } = userData;
+      const room = rooms.get(roomId);
+      
+      if (room) {
+        // Если пользователь демонстрировал экран, останавливаем демонстрацию
+        if (room.screenSharer && room.screenSharer.userId === userId) {
+          room.screenSharer = null;
+          io.to(roomId).emit('screen-share-stop', {
+            userId,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Удаляем участника
+        room.participants = room.participants.filter(p => p.socketId !== socket.id);
+        rooms.set(roomId, room);
+        
+        // Обновляем список участников и уведомляем о выходе
+        io.to(roomId).emit('participants-updated', room.participants);
+        io.to(roomId).emit('user-left', {
+          userId,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      userRooms.delete(socket.id);
+      userInfo.delete(socket.id);
+    }
+    
     console.log('Отключение:', socket.id);
   });
 });
