@@ -1,35 +1,37 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><!-- SEO Meta Tags -->
-<meta name="description" content="WatchParty - Совместный просмотр видео с друзьями в реальном времени. Создавайте комнаты, смотрите видео вместе, общайтесь в чате.">
-<meta name="keywords" content="совместный просмотр, watchparty, видео с друзьями, онлайн кино, групповой просмотр">
-<meta name="author" content="WatchParty">
-<meta name="robots" content="index, follow">
-
-<!-- Open Graph для социальных сетей -->
-<meta property="og:title" content="WatchParty - Совместный просмотр видео">
-<meta property="og:description" content="Смотрите видео вместе с друзьями в реальном времени">
-<meta property="og:image" content="/assets/og-image.png">
-<meta property="og:url" content="https://ваш-сайт.com">
-<meta property="og:type" content="website">
-
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="WatchParty - Совместный просмотр видео">
-<meta name="twitter:description" content="Смотрите видео вместе с друзьями в реальном времени">
-<meta name="twitter:image" content="/assets/twitter-image.png">
-
-<!-- Для мобильных -->
-<meta name="theme-color" content="#9146FF">
-<meta name="apple-mobile-web-app-title" content="WatchParty">
-
-<!-- Canonical URL -->
-<link rel="canonical" href="https://ваш-сайт.com">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Смотрите видео вместе с друзьями в реальном времени в комнате WatchParty">
+    <meta name="keywords" content="совместный просмотр, видео чат, онлайн кинотеатр, смотреть вместе">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="WatchParty - Смотреть видео вместе">
+    <meta property="og:description" content="Присоединяйтесь к совместному просмотру видео в реальном времени">
+    <meta property="og:image" content="/assets/og-room.png">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ru_RU">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="WatchParty - Совместный просмотр видео">
+    <meta name="twitter:description" content="Смотрите видео вместе с друзьями в реальном времени">
+    <meta name="twitter:image" content="/assets/twitter-image.png">
+    
+    <!-- Для мобильных -->
+    <meta name="theme-color" content="#9146FF">
+    <meta name="apple-mobile-web-app-title" content="WatchParty">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    
     <title>🎬 WatchParty - Совместный просмотр</title>
     
     <!-- Библиотеки -->
@@ -646,32 +648,13 @@
         </div>
         
         <!-- Демонстрация экрана -->
-       // ... существующий код ...
-
-// Демонстрация экрана
-async function toggleScreenShare() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-        showNotification('Демонстрация экрана не поддерживается');
-        return;
-    }
-    
-    try {
-        if (isSharingScreen) {
-            stopScreenSharing();
-            return;
-        }
+        <div class="screen-share-overlay" id="screenShareIndicator">
+            <div style="display: flex; align-items: center; gap: 8px; color: white; font-size: 14px;">
+                <i class="fas fa-desktop" style="color: var(--primary-color);"></i>
+                <span>Демонстрация экрана</span>
+            </div>
+        </div>
         
-        showNotification('Начинаю демонстрацию экрана...');
-        
-        // Запрашиваем доступ к экрану с аудио
-        // ... весь код, который я отправил ...
-    } catch (error) {
-        console.error('❌ Ошибка демонстрации экрана:', error);
-        showNotification('Ошибка: ' + error.message);
-    }
-}
-
-// ... остальной код ...
         <!-- Twitch-like чат оверлей -->
         <div class="twitch-chat-overlay" id="twitchChatOverlay">
             <!-- Сообщения будут добавляться сюда -->
@@ -926,69 +909,13 @@ async function toggleScreenShare() {
             }
         }
         
-    // Инициализация видео плеера
-function initializeVideoPlayer() {
-    videoPlayer = document.getElementById('videoPlayer');
-    
-    // УБИРАЕМ автоматическую отправку при play/pause
-    // Вместо этого будем отправлять только по клику на кнопку
-    videoPlayer.addEventListener('timeupdate', updateProgressBar);
-    
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    
-    const progressBar = document.getElementById('progressBar');
-    if (progressBar) {
-        progressBar.addEventListener('click', seekVideo);
-    }
-}
+        // Инициализация видео плеера
+        function initializeVideoPlayer() {
+            videoPlayer = document.getElementById('videoPlayer');
             
-            videoPlayer.addEventListener('pause', () => {
-                isPlaying = false;
-                updatePlayButton(false);
-                
-                // Отправляем событие паузы на сервер
-                if (isHost && socket && currentRoom) {
-                    console.log('⏸️ Хост поставил на паузу, время:', videoPlayer.currentTime);
-                    socket.emit('video-control', {
-                        roomId: currentRoom.id,
-                        action: 'pause',
-                        time: videoPlayer.currentTime,
-                        timestamp: Date.now()
-                    });
-                }
-            });
+            videoPlayer.addEventListener('timeupdate', updateProgressBar);
             
-            videoPlayer.addEventListener('timeupdate', () => {
-                updateProgressBar();
-                
-                // Периодически синхронизируем время (только для хоста)
-                if (isHost && socket && currentRoom && isPlaying) {
-                    const now = Date.now();
-                    // Синхронизируем каждые 2 секунды
-                    if (!lastSyncTime || now - lastSyncTime > 2000) {
-                        socket.emit('video-control', {
-                            roomId: currentRoom.id,
-                            action: 'seek',
-                            time: videoPlayer.currentTime,
-                            timestamp: now
-                        });
-                        lastSyncTime = now;
-                    }
-                }
-            });
-            
-            videoPlayer.addEventListener('seeked', () => {
-                // Отправляем событие перемотки на сервер
-                if (isHost && socket && currentRoom) {
-                    console.log('↔️ Хост перемотал видео на:', videoPlayer.currentTime);
-                    socket.emit('video-control', {
-                        roomId: currentRoom.id,
-                        action: 'seek',
-                        time: videoPlayer.currentTime,
-                        timestamp: Date.now()
-                    });
-                }
-            });
+            videoPlayer.addEventListener('loadedmetadata', updateDuration);
             
             document.addEventListener('fullscreenchange', handleFullscreenChange);
             
@@ -1035,18 +962,19 @@ function initializeVideoPlayer() {
                     loadVideo(data.videoState.url);
                     
                     // Синхронизируем состояние воспроизведения
-                    if (data.videoState.isPlaying && videoPlayer.paused) {
-                        setTimeout(() => {
+                    setTimeout(() => {
+                        if (data.videoState.isPlaying && videoPlayer.paused) {
+                            videoPlayer.currentTime = data.videoState.currentTime || 0;
                             videoPlayer.play().catch(e => console.log('Не удалось автоматически воспроизвести:', e));
-                        }, 500);
-                    } else if (!data.videoState.isPlaying && !videoPlayer.paused) {
-                        videoPlayer.pause();
-                    }
-                    
-                    // Синхронизируем время
-                    if (data.videoState.currentTime && Math.abs(videoPlayer.currentTime - data.videoState.currentTime) > 2) {
-                        videoPlayer.currentTime = data.videoState.currentTime;
-                    }
+                        } else if (!data.videoState.isPlaying && !videoPlayer.paused) {
+                            videoPlayer.pause();
+                        }
+                        
+                        // Синхронизируем время
+                        if (data.videoState.currentTime && Math.abs(videoPlayer.currentTime - data.videoState.currentTime) > 1) {
+                            videoPlayer.currentTime = data.videoState.currentTime;
+                        }
+                    }, 500);
                 }
                 
                 // Обработка демонстрации экрана
@@ -1083,53 +1011,47 @@ function initializeVideoPlayer() {
                 
                 console.log('🎬 Получено обновление видео:', data.action, 'время:', data.time);
                 
-                // Защита от устаревших сообщений
-                if (data.timestamp && Date.now() - data.timestamp > 5000) {
-                    console.log('⚠️ Игнорирую устаревшее обновление видео');
-                    return;
-                }
-                
                 switch(data.action) {
                     case 'play':
-                        if (videoPlayer && !videoPlayer.paused) {
-                            console.log('🎬 Уже воспроизводится, игнорирую play');
-                            return;
-                        }
                         if (videoPlayer) {
-                            videoPlayer.currentTime = data.time;
                             setTimeout(() => {
-                                videoPlayer.play().catch(e => console.log('Не удалось воспроизвести:', e));
+                                videoPlayer.currentTime = data.time;
+                                videoPlayer.play()
+                                    .then(() => {
+                                        updatePlayButton(true);
+                                        console.log('▶️ Синхронизировано воспроизведение');
+                                    })
+                                    .catch(e => console.log('Не удалось синхронизировать воспроизведение:', e));
                             }, 100);
-                            updatePlayButton(true);
-                            console.log('▶️ Воспроизведение синхронизировано');
                         }
                         break;
                         
                     case 'pause':
-                        if (videoPlayer && videoPlayer.paused) {
-                            console.log('🎬 Уже на паузе, игнорирую pause');
-                            return;
-                        }
                         if (videoPlayer) {
-                            videoPlayer.currentTime = data.time;
-                            videoPlayer.pause();
-                            updatePlayButton(false);
-                            console.log('⏸️ Пауза синхронизирована');
+                            setTimeout(() => {
+                                videoPlayer.currentTime = data.time;
+                                videoPlayer.pause();
+                                updatePlayButton(false);
+                                console.log('⏸️ Синхронизирована пауза');
+                            }, 100);
                         }
                         break;
                         
                     case 'seek':
                         if (videoPlayer) {
-                            // Плавная перемотка только если разница во времени > 1 секунды
-                            if (Math.abs(videoPlayer.currentTime - data.time) > 1) {
-                                videoPlayer.currentTime = data.time;
-                                console.log('↔️ Перемотка синхронизирована');
-                            }
+                            setTimeout(() => {
+                                if (Math.abs(videoPlayer.currentTime - data.time) > 0.5) {
+                                    videoPlayer.currentTime = data.time;
+                                    console.log('↔️ Синхронизирована перемотка');
+                                }
+                            }, 100);
                         }
                         break;
                         
                     case 'change-video':
-                        loadVideo(data.url);
+                        setTimeout(() => {
+                            loadVideo(data.url);
+                        }, 100);
                         break;
                 }
             });
@@ -1447,12 +1369,41 @@ function initializeVideoPlayer() {
         function togglePlay() {
             if (currentVideoType === 'direct') {
                 if (videoPlayer.paused) {
-                    videoPlayer.play().catch(e => {
-                        console.log('Не удалось воспроизвести:', e);
-                        showNotification('Нажмите на видео для воспроизведения');
-                    });
+                    videoPlayer.play()
+                        .then(() => {
+                            isPlaying = true;
+                            updatePlayButton(true);
+                            
+                            // Отправляем событие воспроизведения
+                            if (isHost && socket && currentRoom) {
+                                console.log('▶️ Хост начал воспроизведение, время:', videoPlayer.currentTime);
+                                socket.emit('video-control', {
+                                    roomId: currentRoom.id,
+                                    action: 'play',
+                                    time: videoPlayer.currentTime,
+                                    timestamp: Date.now()
+                                });
+                            }
+                        })
+                        .catch(e => {
+                            console.log('Не удалось воспроизвести:', e);
+                            showNotification('Нажмите на видео для воспроизведения');
+                        });
                 } else {
                     videoPlayer.pause();
+                    isPlaying = false;
+                    updatePlayButton(false);
+                    
+                    // Отправляем событие паузы
+                    if (isHost && socket && currentRoom) {
+                        console.log('⏸️ Хост поставил на паузу, время:', videoPlayer.currentTime);
+                        socket.emit('video-control', {
+                            roomId: currentRoom.id,
+                            action: 'pause',
+                            time: videoPlayer.currentTime,
+                            timestamp: Date.now()
+                        });
+                    }
                 }
             }
         }
@@ -1508,6 +1459,20 @@ function initializeVideoPlayer() {
                 currentTime.textContent = formatTime(current);
                 duration.textContent = formatTime(total);
                 progressFill.style.width = `${percent}%`;
+                
+                // Если хост, периодически синхронизируем время
+                if (isHost && socket && currentRoom && isPlaying) {
+                    const now = Date.now();
+                    if (now - lastSyncTime > 3000) { // Каждые 3 секунды
+                        socket.emit('video-control', {
+                            roomId: currentRoom.id,
+                            action: 'seek',
+                            time: current,
+                            timestamp: now
+                        });
+                        lastSyncTime = now;
+                    }
+                }
             }
         }
         
@@ -1535,6 +1500,16 @@ function initializeVideoPlayer() {
             const newTime = percent * videoPlayer.duration;
             
             videoPlayer.currentTime = newTime;
+            
+            // Отправляем событие перемотки
+            if (isHost && socket && currentRoom) {
+                socket.emit('video-control', {
+                    roomId: currentRoom.id,
+                    action: 'seek',
+                    time: newTime,
+                    timestamp: Date.now()
+                });
+            }
         }
         
         // Twitch-подобный чат
@@ -1600,7 +1575,7 @@ function initializeVideoPlayer() {
             }, 10000);
         }
         
-        // Улучшенная демонстрация экрана
+        // Демонстрация экрана
         async function toggleScreenShare() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
                 showNotification('Демонстрация экрана не поддерживается');
@@ -1615,19 +1590,57 @@ function initializeVideoPlayer() {
                 
                 showNotification('Начинаю демонстрацию экрана...');
                 
-                // Запрашиваем доступ к экрану с аудио
-                screenStream = await navigator.mediaDevices.getDisplayMedia({
-                    video: {
-                        frameRate: { ideal: 15, max: 30 }, // Увеличил FPS
-                        width: { ideal: 1280, max: 1920 },
-                        height: { ideal: 720, max: 1080 }
-                    },
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        sampleRate: 44100
+                // Пробуем захватить экран со звуком
+                let screenStream;
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            frameRate: { ideal: 15, max: 30 },
+                            width: { ideal: 1280, max: 1920 },
+                            height: { ideal: 720, max: 1080 }
+                        },
+                        audio: true
+                    });
+                    
+                    if (screenStream.getAudioTracks().length > 0) {
+                        showNotification('Демонстрация экрана со звуком!');
+                    } else {
+                        showNotification('Демонстрация экрана (без звука)');
                     }
-                });
+                } catch (error) {
+                    console.log('Не удалось захватить со звуком, пробую без звука:', error);
+                    
+                    // Пробуем без звука
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            frameRate: { ideal: 15, max: 30 },
+                            width: { ideal: 1280, max: 1920 },
+                            height: { ideal: 720, max: 1080 }
+                        },
+                        audio: false
+                    });
+                    
+                    // Пробуем добавить микрофон отдельно
+                    try {
+                        const audioStream = await navigator.mediaDevices.getUserMedia({
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: true,
+                                autoGainControl: true
+                            }
+                        });
+                        
+                        // Добавляем аудио дорожки
+                        audioStream.getAudioTracks().forEach(track => {
+                            screenStream.addTrack(track);
+                        });
+                        
+                        showNotification('Демонстрация экрана с микрофоном');
+                    } catch (micError) {
+                        console.log('Микрофон недоступен:', micError);
+                        showNotification('Демонстрация экрана без звука');
+                    }
+                }
                 
                 // Останавливаем текущее видео
                 hideAllPlayers();
@@ -1639,26 +1652,23 @@ function initializeVideoPlayer() {
                 // Создаем видео элемент для потока
                 const screenVideo = document.createElement('video');
                 screenVideo.srcObject = screenStream;
+                screenVideo.muted = true; // Отключаем локальное воспроизведение
                 screenVideo.play();
                 
                 // Ждем загрузки метаданных
                 await new Promise(resolve => {
                     screenVideo.onloadedmetadata = () => {
-                        // Оптимизируем размер для уменьшения лагов
+                        // Оптимизируем размер
                         const maxWidth = 1280;
                         const maxHeight = 720;
                         const videoRatio = screenVideo.videoWidth / screenVideo.videoHeight;
                         
-                        let width = screenVideo.videoWidth;
-                        let height = screenVideo.videoHeight;
+                        let width = Math.min(screenVideo.videoWidth, maxWidth);
+                        let height = width / videoRatio;
                         
-                        if (width > maxWidth) {
-                            width = maxWidth;
-                            height = maxWidth / videoRatio;
-                        }
                         if (height > maxHeight) {
                             height = maxHeight;
-                            width = maxHeight * videoRatio;
+                            width = height * videoRatio;
                         }
                         
                         screenCanvas.width = Math.floor(width);
@@ -1668,20 +1678,22 @@ function initializeVideoPlayer() {
                 });
                 
                 // Отправляем событие начала демонстрации
+                const hasAudio = screenStream.getAudioTracks().length > 0;
                 socket.emit('screen-share-start', {
                     roomId: currentRoom.id,
                     userId: currentUser.id,
                     username: currentUser.username,
                     quality: 'medium',
-                    delay: 100
+                    delay: 100,
+                    hasAudio: hasAudio
                 });
                 
                 isSharingScreen = true;
-                showScreenShareIndicator('Вы');
+                showScreenShareIndicator('Вы' + (hasAudio ? ' (со звуком)' : ' (без звука)'));
                 
                 // Оптимизированная отправка кадров
                 let lastFrameTime = 0;
-                const targetFPS = 15; // 15 кадров в секунду для баланса качества/производительности
+                const targetFPS = 15;
                 const frameInterval = 1000 / targetFPS;
                 
                 screenInterval = setInterval(() => {
@@ -1690,44 +1702,28 @@ function initializeVideoPlayer() {
                         captureAndSendFrame(screenVideo);
                         lastFrameTime = now;
                     }
-                }, 1000 / 30); // Проверяем 30 раз в секунду, но отправляем только 15 кадров
+                }, 1000 / 30);
                 
                 // Обработка остановки демонстрации
                 screenStream.getTracks().forEach(track => {
                     track.addEventListener('ended', () => {
+                        console.log('Дорожка завершена');
                         stopScreenSharing();
                     });
                 });
                 
-                showNotification('Демонстрация экрана начата (с аудио)');
-                
             } catch (error) {
                 console.error('❌ Ошибка демонстрации экрана:', error);
-                if (error.name !== 'NotAllowedError') {
-                    showNotification('Не удалось начать демонстрацию экрана');
+                if (error.name === 'NotAllowedError') {
+                    showNotification('Доступ к экрану отклонен');
+                } else if (error.name === 'NotFoundError') {
+                    showNotification('Не найдено устройство для захвата экрана');
+                } else {
+                    showNotification('Ошибка: ' + error.message);
                 }
-                // Пытаемся запросить без аудио
-                if (error.name === 'NotAllowedError' || error.name === 'NotFoundError') {
-                    try {
-                        showNotification('Пробую без аудио...');
-                        screenStream = await navigator.mediaDevices.getDisplayMedia({
-                            video: {
-                                frameRate: { ideal: 15, max: 30 },
-                                width: { ideal: 1280, max: 1920 },
-                                height: { ideal: 720, max: 1080 }
-                            },
-                            audio: false
-                        });
-                        
-                        // Повторяем процесс инициализации без аудио
-                        isSharingScreen = true;
-                        showScreenShareIndicator('Вы (без звука)');
-                        // ... остальной код инициализации
-                        
-                    } catch (audioError) {
-                        showNotification('Не удалось начать демонстрацию экрана');
-                    }
-                }
+                
+                // Сбрасываем состояние
+                isSharingScreen = false;
             }
         }
         
@@ -1735,11 +1731,11 @@ function initializeVideoPlayer() {
             if (!screenContext || !screenCanvas || !socket || !currentRoom) return;
             
             try {
-                // Рисуем кадр на canvas с оптимальным качеством
+                // Рисуем кадр на canvas
                 screenContext.drawImage(videoElement, 0, 0, screenCanvas.width, screenCanvas.height);
                 
                 // Конвертируем в base64 с балансом качества/размера
-                const frameData = screenCanvas.toDataURL('image/webp', 0.5); // WebP лучше сжимается
+                const frameData = screenCanvas.toDataURL('image/webp', 0.5);
                 
                 // Отправляем кадр на сервер
                 socket.emit('screen-frame', {
@@ -2019,6 +2015,3 @@ function initializeVideoPlayer() {
     </script>
 </body>
 </html>
-
-
-
