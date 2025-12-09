@@ -11,7 +11,66 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
+// ... весь ваш существующий код до requireAuth ...
 
+// Middleware для проверки аутентификации
+const requireAuth = (req, res, next) => {
+  console.log('🔍 Проверка авторизации:', req.session.userId);
+  
+  // Разрешаем доступ к главной странице без авторизации
+  if (req.path === '/' || req.path === '/login' || req.path === '/register' || req.path === '/health') {
+    return next();
+  }
+  
+  if (!req.session.userId) {
+    console.log('❌ Нет авторизации');
+    
+    // Для API возвращаем JSON
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Требуется авторизация',
+        redirect: '/login'
+      });
+    }
+    
+    // Для HTML страниц перенаправляем
+    return res.redirect('/login');
+  }
+  
+  next();
+};
+
+// Главная страница
+app.get('/', (req, res) => {
+  console.log('📄 Главная страница');
+  
+  // Если пользователь авторизован, перенаправляем в дашборд
+  if (req.session.userId) {
+    console.log('👤 Пользователь авторизован, перенаправляем в дашборд');
+    return res.redirect('/dashboard');
+  }
+  
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Остальные маршруты остаются как были
+app.get('/login', (req, res) => {
+  console.log('📄 Страница входа');
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+app.get('/register', (req, res) => {
+  console.log('📄 Страница регистрации');
+  res.sendFile(path.join(__dirname, 'register.html'));
+});
+
+app.get('/dashboard', requireAuth, (req, res) => {
+  console.log('📄 Дашборд');
+  res.sendFile(path.join(__dirname, 'dashboard.html'));
+});
+
+// ... остальной код остается без изменений ...
 // Конфигурация для Render
 const PORT = process.env.PORT || 3000; // Render автоматически устанавливает PORT
 const HOST = '0.0.0.0'; // Важно для Render
@@ -361,3 +420,4 @@ server.listen(PORT, HOST, () => {
   console.log(`🌐 Внешний доступ: https://syncview.onrender.com`);
   console.log(`✅ Health check: https://syncview.onrender.com/health`);
 });
+
