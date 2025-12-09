@@ -926,25 +926,21 @@ async function toggleScreenShare() {
             }
         }
         
-        // Инициализация видео плеера
-        function initializeVideoPlayer() {
-            videoPlayer = document.getElementById('videoPlayer');
-            
-            videoPlayer.addEventListener('play', () => {
-                isPlaying = true;
-                updatePlayButton(true);
-                
-                // Отправляем событие воспроизведения на сервер
-                if (isHost && socket && currentRoom) {
-                    console.log('▶️ Хост начал воспроизведение, время:', videoPlayer.currentTime);
-                    socket.emit('video-control', {
-                        roomId: currentRoom.id,
-                        action: 'play',
-                        time: videoPlayer.currentTime,
-                        timestamp: Date.now()
-                    });
-                }
-            });
+    // Инициализация видео плеера
+function initializeVideoPlayer() {
+    videoPlayer = document.getElementById('videoPlayer');
+    
+    // УБИРАЕМ автоматическую отправку при play/pause
+    // Вместо этого будем отправлять только по клику на кнопку
+    videoPlayer.addEventListener('timeupdate', updateProgressBar);
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    
+    const progressBar = document.getElementById('progressBar');
+    if (progressBar) {
+        progressBar.addEventListener('click', seekVideo);
+    }
+}
             
             videoPlayer.addEventListener('pause', () => {
                 isPlaying = false;
@@ -2023,5 +2019,6 @@ async function toggleScreenShare() {
     </script>
 </body>
 </html>
+
 
 
