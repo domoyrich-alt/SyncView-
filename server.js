@@ -11,10 +11,21 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { 
-  cors: { 
-    origin: "*", 
-    methods: ["GET", "POST"] 
+
+// Настройка CORS для Render
+const allowedOrigins = [
+  'https://syncview.onrender.com',
+  'http://syncview.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://localhost:3000'
+];
+
+const io = socketIo(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+    methods: ["GET", "POST"]
   },
   transports: ['websocket', 'polling'],
   pingTimeout: 60000,
@@ -25,6 +36,26 @@ const io = socketIo(server, {
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0'; // Важно для Render
 
+// Настройка CORS middleware
+app.use(cors({
+  origin: function(origin, callback) {
+    // Разрешаем запросы без origin (например, из мобильных приложений или Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
+
+// Разрешаем предварительные запросы OPTIONS
+app.options('*', cors());
+
 // Отключаем кэширование для всех маршрутов
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -33,15 +64,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// Настройка сессий
+// Настройка сессий с правильными куками для Render
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'watchparty-secret-key-2023',
+  secret: process.env.SESSION_SECRET || 'watchparty-secret-key-2023-sync-view-strong-secret',
   resave: false,
-  saveUninitialized: true,
-  cookie: { 
+  saveUninitialized: false, // Не сохранять пустые сессии
+  cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 
-  }
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 часа
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined
+  },
+  name: 'watchparty.sid'
 }));
 
 // Middleware для отладки сессий
@@ -50,15 +85,12 @@ app.use((req, res, next) => {
   console.log('Session ID:', req.sessionID);
   console.log('User ID в сессии:', req.session.userId);
   console.log('URL:', req.url);
+  console.log('Method:', req.method);
   console.log('=== Конец сессии ===');
   next();
 });
 
-// Middleware
-app.use(cors({
-  origin: "*",
-  credentials: true
-}));
+// Middleware для парсинга JSON
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -98,7 +130,7 @@ const upload = multer({
 const users = new Map();
 const rooms = new Map();
 const onlineUsers = new Map();
-const screenSharers = new Map(); // Текущие демонстраторы экрана
+const screenSharers = new Map();
 
 // Функция инициализации данных
 function initData() {
@@ -120,10 +152,10 @@ function initData() {
   const demoRoomId = uuidv4().substring(0, 8);
   rooms.set(demoRoomId, {
     id: demoRoomId,
-    name: 'Демо комната',
+    name: '🎬 Демо комната для всех',
     host: 'Демо Пользователь',
     hostId: testUserId,
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    videoUrl: '',
     isPrivate: false,
     password: null,
     createdAt: new Date().toISOString(),
@@ -141,11 +173,64 @@ function initData() {
 // Инициализация данных
 initData();
 
+// Health check для Render (обязательно!)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    sessionId: req.sessionID
+  });
+});
+
+// ГЛАВНАЯ СТРАНИЦА - логика перенаправления
+app.get('/', (req, res) => {
+  console.log('📄 Главная страница - запрос');
+  console.log('Сессия пользователя:', req.session.userId);
+  
+  // Если пользователь авторизован, перенаправляем в дашборд
+  if (req.session.userId) {
+    console.log('👤 Пользователь авторизован, перенаправляем в дашборд');
+    return res.redirect('/dashboard');
+  }
+  
+  // Иначе показываем главную
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// СТРАНИЦА ВХОДА
+app.get('/login', (req, res) => {
+  console.log('📄 Страница входа - запрос');
+  
+  // Если уже авторизован, перенаправляем в дашборд
+  if (req.session.userId) {
+    console.log('👤 Пользователь уже авторизован, перенаправляем в дашборд');
+    return res.redirect('/dashboard');
+  }
+  
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+// СТРАНИЦА РЕГИСТРАЦИИ
+app.get('/register', (req, res) => {
+  console.log('📄 Страница регистрации - запрос');
+  
+  // Если уже авторизован, перенаправляем в дашборд
+  if (req.session.userId) {
+    console.log('👤 Пользователь уже авторизован, перенаправляем в дашборд');
+    return res.redirect('/dashboard');
+  }
+  
+  res.sendFile(path.join(__dirname, 'register.html'));
+});
+
 // Middleware для проверки аутентификации
 const requireAuth = (req, res, next) => {
   console.log('🔍 Проверка авторизации для пути:', req.path);
+  console.log('Сессия ID:', req.sessionID);
+  console.log('User ID в сессии:', req.session.userId);
   
-  // Пути, доступные без авторизации
+  // Публичные пути
   const publicPaths = ['/', '/login', '/register', '/health', '/api/login', '/api/register'];
   
   if (publicPaths.includes(req.path)) {
@@ -165,38 +250,14 @@ const requireAuth = (req, res, next) => {
       });
     }
     
-    // Для HTML страниц перенаправляем
+    // Для HTML перенаправляем на логин
     return res.redirect('/login');
   }
   
   next();
 };
 
-// Health check для Render (обязательно!)
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
-// Маршруты
-app.get('/', (req, res) => {
-  console.log('📄 Главная страница');
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.get('/login', (req, res) => {
-  console.log('📄 Страница входа');
-  res.sendFile(path.join(__dirname, 'login.html'));
-});
-
-app.get('/register', (req, res) => {
-  console.log('📄 Страница регистрации');
-  res.sendFile(path.join(__dirname, 'register.html'));
-});
-
+// ЗАЩИЩЕННЫЕ МАРШРУТЫ
 app.get('/dashboard', requireAuth, (req, res) => {
   console.log('📄 Дашборд для пользователя:', req.session.username);
   res.sendFile(path.join(__dirname, 'dashboard.html'));
@@ -212,23 +273,36 @@ app.get('/room/:id', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'room.html'));
 });
 
-// API маршруты
+// ==================== API МАРШРУТЫ ====================
+
+// API регистрации
 app.post('/api/register', async (req, res) => {
   try {
+    console.log('📝 Регистрация нового пользователя');
     const { username, email, password } = req.body;
-    // Валидация
+    
     if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Все поля обязательны' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Все поля обязательны' 
+      });
     }
+    
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Пароль должен быть не менее 6 символов' 
+      });
     }
-    // Проверка существующего пользователя
+    
     const existingUser = Array.from(users.values()).find(u => u.email === email);
     if (existingUser) {
-      return res.status(400).json({ error: 'Email уже зарегистрирован' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email уже зарегистрирован' 
+      });
     }
-    // Создание пользователя
+    
     const userId = uuidv4();
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = {
@@ -241,56 +315,192 @@ app.post('/api/register', async (req, res) => {
       rooms: [],
       lastSeen: new Date().toISOString()
     };
+    
     users.set(userId, user);
+    
+    // Сохраняем сессию
     req.session.userId = userId;
     req.session.username = username;
-    res.json({ success: true, user: { id: userId, username, email, avatar: user.avatar } });
+    req.session.email = email;
+    
+    // Сохраняем сессию вручную чтобы убедиться
+    req.session.save((err) => {
+      if (err) {
+        console.error('Ошибка сохранения сессии:', err);
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Ошибка сервера при создании сессии' 
+        });
+      }
+      
+      console.log('✅ Пользователь зарегистрирован:', username);
+      console.log('✅ Сессия установлена, ID:', req.sessionID);
+      
+      // Устанавливаем куки вручную для надежности
+      res.cookie('watchparty.sid', req.sessionID, {
+        maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      });
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: userId, 
+          username, 
+          email, 
+          avatar: user.avatar 
+        },
+        sessionId: req.sessionID,
+        message: 'Регистрация успешна'
+      });
+    });
+    
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('❌ Ошибка регистрации:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Ошибка сервера' 
+    });
   }
 });
 
+// API входа
 app.post('/api/login', async (req, res) => {
   try {
+    console.log('🔑 Вход пользователя');
     const { email, password } = req.body;
-    // Поиск пользователя
+    
     const user = Array.from(users.values()).find(u => u.email === email);
     if (!user) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
+      console.log('❌ Пользователь не найден:', email);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Неверный email или пароль' 
+      });
     }
-    // Проверка пароля
+    
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
+      console.log('❌ Неверный пароль для:', email);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Неверный email или пароль' 
+      });
     }
-    // Обновление lastSeen
+    
     user.lastSeen = new Date().toISOString();
     users.set(user.id, user);
-    // Создание сессии
+    
+    // Сохраняем сессию
     req.session.userId = user.id;
     req.session.username = user.username;
-    res.json({ success: true, user: { id: user.id, username: user.username, email: user.email, avatar: user.avatar } });
+    req.session.email = user.email;
+    
+    req.session.save((err) => {
+      if (err) {
+        console.error('Ошибка сохранения сессии:', err);
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Ошибка сервера при входе' 
+        });
+      }
+      
+      console.log('✅ Пользователь вошел:', user.username);
+      console.log('✅ Сессия установлена, ID:', req.sessionID);
+      
+      // Устанавливаем куки вручную для надежности
+      res.cookie('watchparty.sid', req.sessionID, {
+        maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+      });
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          username: user.username, 
+          email: user.email, 
+          avatar: user.avatar 
+        },
+        sessionId: req.sessionID,
+        message: 'Вход успешен'
+      });
+    });
+    
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Ошибка сервера' });
+    console.error('❌ Ошибка входа:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Ошибка сервера' 
+    });
   }
 });
 
+// API выхода
 app.post('/api/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true });
+  console.log('🚪 Выход пользователя:', req.session.username);
+  
+  // Удаляем куки
+  res.clearCookie('watchparty.sid');
+  
+  // Уничтожаем сессию
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Ошибка при выходе:', err);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Ошибка при выходе' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Вы успешно вышли' 
+    });
+  });
 });
 
-app.get('/api/user', requireAuth, (req, res) => {
+// API получения данных пользователя
+app.get('/api/user', (req, res) => {
+  console.log('👤 Получение данных пользователя');
+  console.log('Session ID:', req.sessionID);
+  console.log('User ID в сессии:', req.session.userId);
+  
+  if (!req.session.userId) {
+    console.log('❌ Нет авторизации');
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Требуется авторизация',
+      redirect: '/login'
+    });
+  }
+  
   const user = users.get(req.session.userId);
   if (!user) {
-    return res.status(404).json({ error: 'Пользователь не найден' });
+    console.log('❌ Пользователь не найден в базе');
+    // Если пользователь не найден в базе, сбрасываем сессию
+    req.session.destroy();
+    return res.status(404).json({ 
+      success: false, 
+      error: 'Пользователь не найден',
+      redirect: '/login'
+    });
   }
+  
   const { password, ...userData } = user;
-  res.json({ success: true, user: userData });
+  console.log('✅ Данные пользователя отправлены:', userData.username);
+  res.json({ 
+    success: true, 
+    user: userData,
+    sessionId: req.sessionID
+  });
 });
 
+// Остальные API маршруты остаются как были
 app.post('/api/update-profile', requireAuth, upload.single('avatar'), async (req, res) => {
   try {
     const userId = req.session.userId;
@@ -422,7 +632,7 @@ app.get('/api/room/:id', requireAuth, (req, res) => {
 
 // WebSocket соединения
 io.on('connection', (socket) => {
-  console.log('Новое подключение:', socket.id);
+  console.log('✅ Новое подключение:', socket.id);
 
   socket.on('join-room', (data) => {
     const { roomId, userId, username, avatar } = data;
@@ -431,7 +641,6 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Комната не найдена' });
       return;
     }
-    // Проверяем, не присоединен ли уже пользователь
     const existingParticipant = room.participants.find(p => p.id === userId);
     if (!existingParticipant) {
       room.participants.push({
@@ -444,13 +653,9 @@ io.on('connection', (socket) => {
       });
       rooms.set(roomId, room);
     }
-    // Присоединяем сокет к комнате
     socket.join(roomId);
-    // Обновляем onlineUsers
     onlineUsers.set(socket.id, { userId, username, roomId });
-    // Отправляем информацию о присоединении всем, кроме присоединившегося
     socket.to(roomId).emit('user-joined', { userId, username, avatar, timestamp: new Date().toISOString() });
-    // Отправляем текущее состояние комнаты новому участнику
     socket.emit('room-state', {
       participants: room.participants,
       messages: room.messages.slice(-100),
@@ -462,7 +667,6 @@ io.on('connection', (socket) => {
       },
       screenSharer: room.screenSharer
     });
-    // Рассылаем обновленный список участников
     io.to(roomId).emit('participants-updated', room.participants);
     console.log(`Пользователь ${username} присоединился к комнате ${roomId}`);
   });
@@ -483,7 +687,6 @@ io.on('connection', (socket) => {
     };
     room.messages.push(messageData);
     rooms.set(roomId, room);
-    // Отправляем сообщение всем в комнате
     io.to(roomId).emit('new-message', messageData);
   });
 
@@ -515,7 +718,6 @@ io.on('connection', (socket) => {
         break;
     }
     rooms.set(roomId, room);
-    // Отправляем обновление всем, кроме отправителя
     socket.to(roomId).emit('video-update', { ...data, serverTime: now });
   });
 
@@ -524,30 +726,24 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('play-sound', sound);
   });
 
-  // Обработчики для синхронизации экрана
   socket.on('screen-share-start', (data) => {
     const { roomId, userId, username, quality, delay } = data;
     const room = rooms.get(roomId);
     if (!room) return;
-    // Устанавливаем текущего демонстратора экрана
     room.screenSharer = { userId, username, quality, delay, startedAt: new Date().toISOString() };
-    // Обновляем статус участника
     const participant = room.participants.find(p => p.id === userId);
     if (participant) {
       participant.isSharingScreen = true;
     }
     rooms.set(roomId, room);
     screenSharers.set(userId, { roomId, socketId: socket.id });
-    // Рассылаем всем участникам комнаты
     io.to(roomId).emit('screen-share-start', { userId, username, quality, delay, timestamp: new Date().toISOString() });
-    // Рассылаем обновленный список участников
     io.to(roomId).emit('participants-updated', room.participants);
     console.log(`Пользователь ${username} начал показ экрана в комнате ${roomId}`);
   });
 
   socket.on('screen-frame', (data) => {
     const { roomId, userId, frame, timestamp, width, height } = data;
-    // Пересылаем кадр всем, кроме отправителя
     socket.to(roomId).emit('screen-frame', { userId, frame, timestamp, width, height });
   });
 
@@ -555,20 +751,16 @@ io.on('connection', (socket) => {
     const { roomId, userId } = data;
     const room = rooms.get(roomId);
     if (!room) return;
-    // Сбрасываем демонстратора экрана
     if (room.screenSharer && room.screenSharer.userId === userId) {
       room.screenSharer = null;
     }
-    // Обновляем статус участника
     const participant = room.participants.find(p => p.id === userId);
     if (participant) {
       participant.isSharingScreen = false;
     }
     rooms.set(roomId, room);
     screenSharers.delete(userId);
-    // Рассылаем всем участникам комнаты
     io.to(roomId).emit('screen-share-stop', { userId, timestamp: new Date().toISOString() });
-    // Рассылаем обновленный список участников
     io.to(roomId).emit('participants-updated', room.participants);
     console.log(`Пользователь ${userId} остановил показ экрана в комнате ${roomId}`);
   });
@@ -577,7 +769,6 @@ io.on('connection', (socket) => {
     const { roomId, userId } = data;
     const room = rooms.get(roomId);
     if (room) {
-      // Если пользователь демонстрировал экран, останавливаем демонстрацию
       if (room.screenSharer && room.screenSharer.userId === userId) {
         room.screenSharer = null;
         io.to(roomId).emit('screen-share-stop', { userId, timestamp: new Date().toISOString() });
@@ -598,7 +789,6 @@ io.on('connection', (socket) => {
       const { userId, roomId } = userData;
       const room = rooms.get(roomId);
       if (room) {
-        // Если пользователь демонстрировал экран, останавливаем демонстрацию
         if (room.screenSharer && room.screenSharer.userId === userId) {
           room.screenSharer = null;
           io.to(roomId).emit('screen-share-stop', { userId, timestamp: new Date().toISOString() });
@@ -617,8 +807,7 @@ io.on('connection', (socket) => {
 
 // Запуск сервера
 server.listen(PORT, HOST, () => {
-  console.log(`✅ Сервер запущен на порту ${PORT}`);
-  console.log(`🌐 Локальный доступ: http://localhost:${PORT}`);
-  console.log(`🌐 Внешний доступ: будет сгенерирован Render`);
+  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+  console.log(`🌐 Хост: ${HOST}`);
   console.log(`✅ Health check: http://localhost:${PORT}/health`);
 });
